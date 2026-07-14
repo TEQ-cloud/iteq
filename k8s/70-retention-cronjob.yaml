@@ -1,0 +1,31 @@
+# Daily PVC retention sweep (7 days normal, 3 days for >5 GB files,
+# 24 h for abandoned uploads). The api pods also sweep every 10 minutes;
+# this CronJob is the safety net that runs even if no api pod is healthy.
+# RAM-chat data in Redis expires by itself via TTLs.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iteq-retention
+  namespace: iteq
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: prune
+              image: registry.example.com/iteq/api:1.0.0-beta # CHANGE ME: same image as the api
+              command: ["node", "src/prune.js"]
+              env:
+                - name: DATA_DIR
+                  value: /data
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: iteq-data

@@ -1,0 +1,17 @@
+{
+  "name": "iteq-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "MODE=dev node src/index.js",
+    "prune": "node src/prune.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "redis": "^4.7.0",
+    "ws": "^8.18.0"
+  }
+}

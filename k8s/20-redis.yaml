@@ -1,0 +1,46 @@
+# Redis with persistence fully disabled = the "non-persistent / RAM" storage
+# tier. Sessions, rate limits, pubsub and all RAM-chat messages/files live
+# here. When this pod restarts or reschedules, that data is genuinely gone —
+# which is exactly what the UI promises users.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iteq-redis
+  namespace: iteq
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # RAM store: no point running two copies during rollout
+  selector:
+    matchLabels: { app: iteq-redis }
+  template:
+    metadata:
+      labels: { app: iteq-redis }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - redis-server
+            - --save ''            # no RDB snapshots
+            - --appendonly no      # no AOF
+            - --maxmemory 8gb      # adjust to what the PowerEdges can spare
+            - --maxmemory-policy noeviction # full = uploads fail loudly, chats aren't silently evicted
+          ports:
+            - containerPort: 6379
+          resources:
+            requests: { cpu: 100m, memory: 1Gi }
+            limits: { memory: 9Gi } # keep ~1Gi above maxmemory
+          livenessProbe:
+            tcpSocket: { port: 6379 }
+            initialDelaySeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iteq-redis
+  namespace: iteq
+spec:
+  selector: { app: iteq-redis }
+  ports:
+    - port: 6379

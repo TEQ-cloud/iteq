@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iteq-web
+  namespace: iteq
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels: { app: iteq-web }
+  template:
+    metadata:
+      labels: { app: iteq-web }
+    spec:
+      containers:
+        - name: web
+          image: registry.example.com/iteq/web:1.0.0-beta # CHANGE ME: your registry
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iteq-web
+  namespace: iteq
+spec:
+  selector: { app: iteq-web }
+  ports:
+    - port: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: iteq-web
+  namespace: iteq
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: iteq-web
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

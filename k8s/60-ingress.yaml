@@ -1,0 +1,40 @@
+# HTTPS is NOT optional here: browsers only expose WebCrypto (the E2E
+# encryption API) on secure origins. Plain http = the app cannot work.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: iteq
+  namespace: iteq
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m # upload chunks are 8 MiB
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600" # keep WebSockets open
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # cert-manager.io/cluster-issuer: letsencrypt   # uncomment if you use cert-manager
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - i.teqcloud.net
+      secretName: iteq-tls
+  rules:
+    - host: i.teqcloud.net
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: iteq-api
+                port: { number: 8080 }
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: iteq-api
+                port: { number: 8080 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: iteq-web
+                port: { number: 8080 }

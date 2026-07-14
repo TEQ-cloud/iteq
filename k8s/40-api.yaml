@@ -1,0 +1,87 @@
+# The api is stateless (Postgres + Redis + PVC hold all state), so it scales
+# horizontally and follows demand via the HPA below.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iteq-api
+  namespace: iteq
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: # zero-downtime deploys: new pod ready before an old one dies
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels: { app: iteq-api }
+  template:
+    metadata:
+      labels: { app: iteq-api }
+    spec:
+      containers:
+        - name: api
+          image: registry.example.com/iteq/api:1.0.0-beta # CHANGE ME: your registry
+          env:
+            - name: MODE
+              value: prod
+            - name: APP_VERSION
+              value: 1.0.0-beta # shows up in /healthz — keep in step with the image tag
+            - name: ADMIN_USERS
+              value: quinten # comma-separated usernames: auto-approved + may approve others
+            - name: DATA_DIR
+              value: /data
+            - name: REDIS_URL
+              value: redis://iteq-redis:6379
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: iteq-db-app # created automatically by CNPG
+                  key: uri
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { memory: 1Gi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: iteq-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iteq-api
+  namespace: iteq
+spec:
+  selector: { app: iteq-api }
+  ports:
+    - port: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: iteq-api
+  namespace: iteq
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: iteq-api
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

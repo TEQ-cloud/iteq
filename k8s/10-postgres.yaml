@@ -1,0 +1,21 @@
+# CloudNativePG cluster — stores ONLY account/chat metadata:
+# usernames (made up), UUIDs, scrypt-hashed login keys, public keys,
+# PIN-encrypted private keys, wrapped chat keys and encrypted friendly names.
+# No message content ever lands here.
+#
+# CNPG automatically creates the secret `iteq-db-app` with a `uri` key,
+# which the api deployment consumes as DATABASE_URL.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: iteq-db
+  namespace: iteq
+spec:
+  instances: 2 # one per PowerEdge; drop to 1 if you prefer
+  storage:
+    size: 5Gi
+    # storageClass: <your-rwo-ssd-class>   # uncomment if you don't want the default
+  bootstrap:
+    initdb:
+      database: iteq
+      owner: iteq

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "iteq-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/src/index.js"],
+      "env": { "MODE": "dev", "ADMIN_USERS": "quinten" },
+      "port": 8080
+    }
+  ]
+}

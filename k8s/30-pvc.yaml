@@ -1,0 +1,15 @@
+# The one shared volume for persistent chats: messages and file attachments,
+# all ciphertext. RWX so every api pod (and the retention CronJob) can mount
+# it simultaneously. Layout: /data/chats/<chatId>/{msg,files}/...
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: iteq-data
+  namespace: iteq
+spec:
+  accessModes:
+    - ReadWriteMany
+  # storageClassName: <your-rwx-class>   # e.g. nfs-client, longhorn (RWX), cephfs
+  resources:
+    requests:
+      storage: 100Gi
