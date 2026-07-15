@@ -2,6 +2,61 @@ import React, { useEffect, useRef, useState } from 'react';
 import { uploadFile, downloadFile, saveBlob, encryptedSizeOf, fmtBytes, GiB } from '../lib/files.js';
 import { ConfirmModal, InfoModal, RenameModal, ForwardModal } from './Modals.jsx';
 
+const AUTO_PREVIEW_MAX = 15 * 1024 * 1024; // images up to 15 MB decrypt automatically
+
+// Inline previews for photos and videos. Everything is ciphertext on the
+// server, so previewing means download + decrypt in the browser; videos and
+// large images only load when asked.
+function FilePreview({ chat, msg, chatKeyFor }) {
+  const type = msg.fileMeta?.type || '';
+  const size = msg.fileMeta?.size || 0;
+  const isImage = type.startsWith('image/');
+  const isVideo = type.startsWith('video/');
+  const auto = isImage && size <= AUTO_PREVIEW_MAX;
+  const [wanted, setWanted] = useState(auto);
+  const [url, setUrl] = useState(null);
+  const [state, setState] = useState('idle'); // idle | loading | ready | error
+
+  useEffect(() => {
+    if (!wanted) return;
+    let cancelled = false;
+    let objUrl = null;
+    (async () => {
+      setState('loading');
+      try {
+        const key = await chatKeyFor(chat);
+        const { blob } = await downloadFile(chat.id, msg.file, key);
+        if (cancelled) return;
+        objUrl = URL.createObjectURL(blob);
+        setUrl(objUrl);
+        setState('ready');
+      } catch {
+        if (!cancelled) setState('error');
+      }
+    })();
+    // Cleanup must only run on unmount (or if `wanted` flips) — never when
+    // `url` changes, or we'd revoke the blob URL the <img>/<video> is showing.
+    return () => {
+      cancelled = true;
+      if (objUrl) URL.revokeObjectURL(objUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted]);
+
+  if (!isImage && !isVideo) return null;
+  if (!wanted) {
+    return (
+      <button className="preview-load" onClick={() => setWanted(true)}>
+        {isVideo ? '▶' : '🖼'} Load {isVideo ? 'video' : 'image'} preview ({fmtBytes(size)})
+      </button>
+    );
+  }
+  if (state === 'loading') return <div className="preview-loading">Decrypting preview…</div>;
+  if (state === 'error') return <div className="preview-loading">Preview unavailable (file expired or lost).</div>;
+  if (isImage) return <img className="preview-media" src={url} alt={msg.fileMeta?.name || ''} />;
+  return <video className="preview-media" src={url} controls playsInline />;
+}
+
 export function ChatView({ chat, messages, me, allChats, onBack, onSend, onDelete, onForward, onRename, chatKeyFor }) {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);   // decorated msg
@@ -149,14 +204,17 @@ export function ChatView({ chat, messages, me, allChats, onBack, onSend, onDelet
                     </div>
                   )}
                   {m.file ? (
-                    <div className="file-card">
-                      <span className="fi">📎</span>
-                      <div className="fmeta">
-                        <div className="fname">{m.fileMeta?.name || 'encrypted file'}</div>
-                        <div className="fsub">{m.fileMeta ? fmtBytes(m.fileMeta.size) : ''}</div>
-                        <div className="upl-state">{retentionLabel(m)}</div>
+                    <div>
+                      <FilePreview chat={chat} msg={m} chatKeyFor={chatKeyFor} />
+                      <div className="file-card">
+                        <span className="fi">📎</span>
+                        <div className="fmeta">
+                          <div className="fname">{m.fileMeta?.name || 'encrypted file'}</div>
+                          <div className="fsub">{m.fileMeta ? fmtBytes(m.fileMeta.size) : ''}</div>
+                          <div className="upl-state">{retentionLabel(m)}</div>
+                        </div>
+                        <button className="btn-ghost" title="Download" onClick={() => download(m)}>⬇</button>
                       </div>
-                      <button className="btn-ghost" title="Download" onClick={() => download(m)}>⬇</button>
                     </div>
                   ) : (
                     m.dec ? m.dec.text : <i style={{ opacity: 0.6 }}>could not decrypt</i>

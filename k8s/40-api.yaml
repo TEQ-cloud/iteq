@@ -20,14 +20,18 @@ spec:
     spec:
       containers:
         - name: api
-          image: registry.example.com/iteq/api:1.0.0-beta # CHANGE ME: your registry
+          image: ghcr.io/teq-cloud/iteq-api:0.1.0-beta # or your own registry
           env:
             - name: MODE
               value: prod
             - name: APP_VERSION
-              value: 1.0.0-beta # shows up in /healthz — keep in step with the image tag
+              value: 0.1.0-beta # shows up in /healthz — keep in step with the image tag
             - name: ADMIN_USERS
               value: quinten # comma-separated usernames: auto-approved + may approve others
+            - name: ADMIN_SETUP_CODE
+              value: change-me # required to CLAIM an admin username at signup — set before going live!
+            - name: ACCOUNT_RETENTION_DAYS
+              value: "180" # accounts unused this long are deleted, chats included
             - name: DATA_DIR
               value: /data
             - name: REDIS_URL

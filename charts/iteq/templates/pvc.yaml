@@ -1,0 +1,15 @@
+# Shared RWX volume for persistent chats — ciphertext only.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "iteq.fullname" . }}-data
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  {{- with .Values.storage.className }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}

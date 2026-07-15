@@ -36,12 +36,20 @@ if (fs.existsSync(webDist)) {
 const server = http.createServer(app);
 attachWs(server, store);
 
-// Retention: sweep RAM data and the PVC every 10 minutes. The k8s CronJob does
-// a daily PVC sweep as well, in case no api pod is running.
-setInterval(() => {
+// Retention: sweep RAM data and the PVC every 10 minutes, plus inactive
+// accounts (chats included). The k8s CronJob does a daily PVC sweep as well,
+// in case no api pod is running.
+setInterval(async () => {
   const t = Date.now();
   store.sweep(t).catch((e) => console.error('sweep(store):', e.message));
   pstore.sweep(t).catch((e) => console.error('sweep(pvc):', e.message));
+  try {
+    const removedChats = await store.sweepAccounts(t);
+    for (const chatId of removedChats) await pstore.delChat(chatId);
+    if (removedChats.length) console.log(`account sweep: removed ${removedChats.length} chat(s) of inactive accounts`);
+  } catch (e) {
+    console.error('sweep(accounts):', e.message);
+  }
 }, 10 * 60 * 1000).unref();
 
 server.listen(config.port, () => {

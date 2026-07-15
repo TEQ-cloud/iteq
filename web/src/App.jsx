@@ -9,6 +9,7 @@ const PIN_LEN = 6;
 export function App() {
   const [view, setView] = useState('boot'); // boot | landing | disclaimer | auth | pending | app
   const [ident, setIdent] = useState(null); // { user:{id,username,status,admin}, privateKey, pubJwk }
+  const [authMode, setAuthMode] = useState('login'); // which tab the auth screen opens on
 
   useEffect(() => {
     (async () => {
@@ -41,10 +42,15 @@ export function App() {
     setView(identity.user.status === 'active' ? 'app' : 'pending');
   };
 
+  const startAuth = (mode) => {
+    setAuthMode(mode);
+    setView(localStorage.getItem('iteq.disclaimer') ? 'auth' : 'disclaimer');
+  };
+
   if (view === 'boot') return <div className="center-wrap"><p>Loading…</p></div>;
-  if (view === 'landing') return <Landing onStart={() => setView(localStorage.getItem('iteq.disclaimer') ? 'auth' : 'disclaimer')} />;
+  if (view === 'landing') return <Landing onLogin={() => startAuth('login')} onCreate={() => startAuth('create')} />;
   if (view === 'disclaimer') return <Disclaimer onAccept={() => { localStorage.setItem('iteq.disclaimer', '1'); setView('auth'); }} />;
-  if (view === 'auth') return <Auth onAuthed={onAuthed} />;
+  if (view === 'auth') return <Auth initialMode={authMode} onAuthed={onAuthed} />;
   if (view === 'pending') {
     return <Pending username={ident.user.username} onLogout={logout}
       onApproved={(user) => { setIdent((i) => ({ ...i, user })); setView('app'); }} />;
@@ -81,7 +87,10 @@ function Pending({ username, onLogout, onApproved }) {
   );
 }
 
-function Landing({ onStart }) {
+// Public source & self-hosting guide (repo goes public during the beta).
+const REPO_URL = 'https://github.com/TEQ-cloud/iteq';
+
+function Landing({ onLogin, onCreate }) {
   return (
     <div className="landing">
       <div className="landing-hero">
@@ -92,7 +101,16 @@ function Landing({ onStart }) {
           The <b>i</b> stands for <i>interconnected</i> — private chat for the people you trust.
           Self-hosted, end-to-end encrypted, and nobody else's business.
         </p>
-        <button className="btn-primary" onClick={onStart}>Get started</button>
+        <div className="hero-actions">
+          <button className="btn-primary" onClick={onLogin}>Log in</button>
+          <button className="btn" onClick={onCreate}>Create account</button>
+          <a className="btn" href={REPO_URL} target="_blank" rel="noreferrer">Host yourself ↗</a>
+        </div>
+        <p className="instance-note">
+          This is the <b>TEQcloud</b> instance — a private circle for Quinten's friends and family,
+          where every new account needs his personal approval. It's not a public demo: if you're not
+          in that circle, grab the source and <a href={REPO_URL} target="_blank" rel="noreferrer">host your own</a>.
+        </p>
       </div>
       <div className="landing-features">
         <div className="feature"><h3>🔒 End-to-end encrypted</h3><p>Messages and files are encrypted in your browser before they leave your device. The server stores ciphertext, not conversations.</p></div>
@@ -105,6 +123,33 @@ function Landing({ onStart }) {
         <b> trust, not promises</b>. There is no uptime guarantee and no support desk, and every new
         account is personally approved by the operator. You'll get the full disclaimer before
         creating an account.
+      </div>
+      <div className="roadmap">
+        <h2>Roadmap</h2>
+        <div className="roadmap-item current">
+          <div className="rv">v0.1.0 <span className="beta-chip">beta</span></div>
+          <div className="rd">
+            <b>Now live.</b> End-to-end encrypted 1-on-1 chat · RAM or SSD storage per chat ·
+            7-day retention · file transfer with image &amp; video previews · reply, forward, copy,
+            delete · installable PWA · approval-gated accounts · in-tab notifications.
+          </div>
+        </div>
+        <div className="roadmap-item">
+          <div className="rv">v0.2.0</div>
+          <div className="rd">
+            Push notifications while the app is closed (incl. iOS home-screen app) · public release:
+            Docker images, Helm chart &amp; compose example · optional read receipts.
+          </div>
+        </div>
+        <div className="roadmap-item">
+          <div className="rv">v0.3.0</div>
+          <div className="rd">Group chats.</div>
+        </div>
+        <div className="roadmap-item">
+          <div className="rv">v1.0.0</div>
+          <div className="rd">Stability polish, full documentation at docs.teqcloud.net.</div>
+        </div>
+        <p className="roadmap-note">Detailed changelogs and bugfixes live on <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>.</p>
       </div>
     </div>
   );
@@ -136,7 +181,8 @@ function Disclaimer({ onAccept }) {
           <b>What's kept and what isn't:</b> your account and your chat definitions (who a chat is
           with, its encrypted name, its keys) are stored like account data and survive restarts —
           you never have to re-add anyone. Chat <b>content</b> follows the storage mode you pick per
-          chat, and is deleted after <b>7 days at most</b> either way.
+          chat, and is deleted after <b>7 days at most</b> either way. Accounts that go unused for
+          <b> 6 months</b> are removed automatically, chats included.
         </p>
         <div className="check-row">
           <input id="understand" type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
@@ -148,11 +194,13 @@ function Disclaimer({ onAccept }) {
   );
 }
 
-function Auth({ onAuthed }) {
-  const [mode, setMode] = useState('create'); // create | login
+function Auth({ initialMode = 'login', onAuthed }) {
+  const [mode, setMode] = useState(initialMode); // login | create
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [pin2, setPin2] = useState('');
+  const [setupCode, setSetupCode] = useState('');
+  const [needCode, setNeedCode] = useState(false); // admin username + server requires a setup code
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -173,7 +221,7 @@ function Auth({ onAuthed }) {
         privateKey = id.privateKey;
         pubJwk = id.pubJwk;
         const encPriv = await wrapPrivateKey(privateKey, wrapKey);
-        res = await api.signup({ username, authKey, pubJwk, encPriv });
+        res = await api.signup({ username, authKey, pubJwk, encPriv, ...(setupCode ? { setupCode } : {}) });
         // Re-import as non-extractable for storage.
         privateKey = await unwrapPrivateKey(encPriv, wrapKey);
       } else {
@@ -184,7 +232,9 @@ function Auth({ onAuthed }) {
       localStorage.setItem('iteq.token', res.token);
       await onAuthed({ user: res.user, privateKey, pubJwk });
     } catch (err) {
-      if (err.message === 'username-taken') setError('That username already exists. Plum out of luck — pick another one.');
+      if (err.message === 'admin-code-required') { setNeedCode(true); setError('This username is reserved for an admin. Enter the admin setup code from the server configuration.'); }
+      else if (err.message === 'bad-admin-code') { setNeedCode(true); setError('Wrong admin setup code.'); }
+      else if (err.message === 'username-taken') setError('That username already exists. Plum out of luck — pick another one.');
       else if (err.message === 'bad-credentials') setError('Wrong username or PIN.');
       else if (err.message === 'locked' || err.body?.locked) setError(`Too many attempts. Locked for a while — try again later.`);
       else if (err.name === 'OperationError') setError('Wrong PIN (could not unlock your keys).');
@@ -201,8 +251,8 @@ function Auth({ onAuthed }) {
           <img src="/logo.svg" alt="" width="52" height="52" />
         </div>
         <div className="tabs">
-          <button type="button" className={mode === 'create' ? 'active' : ''} onClick={() => { setMode('create'); setError(''); }}>Create account</button>
           <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); }}>Log in</button>
+          <button type="button" className={mode === 'create' ? 'active' : ''} onClick={() => { setMode('create'); setError(''); }}>Create account</button>
         </div>
         <div className="field">
           <label htmlFor="u">Username</label>
@@ -228,8 +278,16 @@ function Auth({ onAuthed }) {
               ⚠️ Your PIN protects your encryption keys. Because everything is end-to-end encrypted,
               there is <b>no PIN recovery</b> — a lost PIN means a lost account and lost messages.
               Also: iTEQ is a closed service, so new accounts <b>wait for the operator's approval</b> before they can chat.
+              Accounts that go unused for <b>6 months</b> are removed automatically, chats included.
             </div>
           </>
+        )}
+        {mode === 'create' && needCode && (
+          <div className="field">
+            <label htmlFor="sc">Admin setup code</label>
+            <input id="sc" type="password" autoComplete="off" value={setupCode}
+              onChange={(e) => setSetupCode(e.target.value)} placeholder="from the server config" />
+          </div>
         )}
         {error && <div className="error">{error}</div>}
         <button className="btn-primary" disabled={!canSubmit} style={{ width: '100%' }}>

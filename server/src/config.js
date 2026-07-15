@@ -9,6 +9,10 @@ export const config = {
   // Everyone else lands in 'pending' until an admin approves them — iTEQ is a
   // closed, approval-based service on purpose.
   adminUsers: (process.env.ADMIN_USERS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  // If set, claiming an ADMIN_USERS username at signup requires this code.
+  // Without it, whoever registers the admin username first becomes admin —
+  // fine on a LAN, a race you lose on the public internet.
+  adminSetupCode: process.env.ADMIN_SETUP_CODE || '',
   dataDir: process.env.DATA_DIR || '/data',
   databaseUrl: process.env.DATABASE_URL || '',
   redisUrl: process.env.REDIS_URL || '',
@@ -19,6 +23,9 @@ export const config = {
   bigFileThreshold: Number(process.env.BIG_FILE_THRESHOLD || 5 * GiB), // >5 GiB => reduced retention
   retentionMs: Number(process.env.RETENTION_DAYS || 7) * DAY,
   bigRetentionMs: Number(process.env.BIG_RETENTION_DAYS || 3) * DAY,
+  // Accounts unused for this long are deleted, chats included. Content always
+  // dies within 7 days anyway; this cleans up the account + chat definitions.
+  accountRetentionMs: Number(process.env.ACCOUNT_RETENTION_DAYS || 180) * DAY,
 
   chunkSize: 8 * 1024 * 1024, // 8 MiB upload chunks
   sessionTtlMs: 30 * DAY,

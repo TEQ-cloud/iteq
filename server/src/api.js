@@ -43,9 +43,16 @@ export function createApi(store, bus) {
     if (!validUsername(username)) return res.status(400).json({ error: 'bad-username' });
     if (typeof authKey !== 'string' || !/^[0-9a-f]{64}$/.test(authKey)) return res.status(400).json({ error: 'bad-auth-key' });
     if (!pubJwk || typeof pubJwk !== 'object' || !isEncBlob(encPriv)) return res.status(400).json({ error: 'bad-keys' });
-    const status = config.adminUsers.includes(username) ? 'active' : 'pending';
+    const isAdminName = config.adminUsers.includes(username);
+    if (isAdminName && config.adminSetupCode) {
+      const { setupCode } = req.body;
+      if (typeof setupCode !== 'string' || !setupCode) return res.status(403).json({ error: 'admin-code-required' });
+      if (setupCode !== config.adminSetupCode) return res.status(403).json({ error: 'bad-admin-code' });
+    }
+    const status = isAdminName ? 'active' : 'pending';
+    const ts = now();
     const user = await store.createUser({
-      id: uuid(), username, authHash: scryptHash(authKey), pubJwk, encPriv, status, createdAt: now(),
+      id: uuid(), username, authHash: scryptHash(authKey), pubJwk, encPriv, status, createdAt: ts, lastSeen: ts,
     });
     if (!user) return res.status(409).json({ error: 'username-taken' });
     const tok = token();
@@ -64,12 +71,14 @@ export function createApi(store, bus) {
       return res.status(401).json({ error: 'bad-credentials', ...(until ? { locked: true, until } : {}) });
     }
     await store.authOk(username);
+    await store.touchUser(user.id, now()); // inactivity clock resets on login
     const tok = token();
     await store.createSession(tok, user.id);
     res.json({ token: tok, user: { id: user.id, username, status: user.status, admin: isAdmin(user) }, pubJwk: user.pubJwk, encPriv: user.encPriv });
   });
 
-  api.get('/me', requireAuth, (req, res) => {
+  api.get('/me', requireAuth, async (req, res) => {
+    await store.touchUser(req.user.id, now()); // called on every app boot
     res.json({ user: { id: req.user.id, username: req.user.username, status: req.user.status, admin: isAdmin(req.user) } });
   });
 

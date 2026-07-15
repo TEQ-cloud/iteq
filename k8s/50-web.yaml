@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: registry.example.com/iteq/web:1.0.0-beta # CHANGE ME: your registry
+          image: ghcr.io/teq-cloud/iteq-web:0.1.0-beta # or your own registry
           ports:
             - containerPort: 8080
           readinessProbe:

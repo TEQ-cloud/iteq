@@ -1,0 +1,32 @@
+# Daily PVC retention safety net (api pods also sweep every 10 minutes).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "iteq.fullname" . }}-retention
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.retentionCronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: prune
+              image: {{ include "iteq.apiImage" . }}
+              command: ["node", "src/prune.js"]
+              env:
+                - name: DATA_DIR
+                  value: /data
+                - name: RETENTION_DAYS
+                  value: {{ .Values.retention.contentDays | quote }}
+                - name: BIG_RETENTION_DAYS
+                  value: {{ .Values.retention.bigFileDays | quote }}
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ include "iteq.fullname" . }}-data

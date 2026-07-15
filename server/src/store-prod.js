@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at bigint NOT NULL
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen bigint;
 CREATE TABLE IF NOT EXISTS chats (
   id uuid PRIMARY KEY,
   storage text NOT NULL,
@@ -50,8 +51,8 @@ export function createProdStore() {
     async createUser(u) {
       try {
         await db.query(
-          'INSERT INTO users (id, username, auth_hash, pub_jwk, enc_priv, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-          [u.id, u.username, u.authHash, u.pubJwk, u.encPriv, u.status, u.createdAt]
+          'INSERT INTO users (id, username, auth_hash, pub_jwk, enc_priv, status, created_at, last_seen) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+          [u.id, u.username, u.authHash, u.pubJwk, u.encPriv, u.status, u.createdAt, u.lastSeen ?? u.createdAt]
         );
         return u;
       } catch (e) {
@@ -61,6 +62,9 @@ export function createProdStore() {
     },
     async setUserStatus(id, status) {
       await db.query('UPDATE users SET status=$2 WHERE id=$1', [id, status]);
+    },
+    async touchUser(id, ts) {
+      await db.query('UPDATE users SET last_seen=$2 WHERE id=$1', [id, ts]);
     },
     async listPendingUsers() {
       const r = await db.query("SELECT id, username, created_at FROM users WHERE status='pending' ORDER BY created_at");
@@ -247,6 +251,29 @@ export function createProdStore() {
       sub.subscribe(CHANNEL, (raw) => {
         try { fn(JSON.parse(raw)); } catch { /* ignore */ }
       });
+    },
+
+    // Inactive-account cleanup. Returns removed chat ids for PVC purging.
+    async sweepAccounts(nowTs) {
+      const cutoff = nowTs - config.accountRetentionMs;
+      const expired = await db.query(
+        'SELECT id FROM users WHERE COALESCE(last_seen, created_at) < $1', [cutoff]
+      );
+      const removedChats = [];
+      for (const { id: userId } of expired.rows) {
+        const cs = await db.query('SELECT chat_id FROM chat_members WHERE user_id=$1', [userId]);
+        for (const { chat_id: chatId } of cs.rows) {
+          await db.query('DELETE FROM chats WHERE id=$1', [chatId]); // members cascade
+          const msgIds = await redis.zRange(`np:idx:${chatId}`, 0, -1);
+          const fileIds = await redis.zRange(`np:files:${chatId}`, 0, -1);
+          for (const fileId of fileIds) await this.npDelFile(chatId, fileId);
+          if (msgIds.length) await redis.del(msgIds.map((m) => `np:msg:${chatId}:${m}`));
+          await redis.del([`np:idx:${chatId}`, `np:files:${chatId}`]);
+          removedChats.push(chatId);
+        }
+        await db.query('DELETE FROM users WHERE id=$1', [userId]);
+      }
+      return removedChats;
     },
 
     // --- sweep: TTLs do the real work; prune index zsets ---

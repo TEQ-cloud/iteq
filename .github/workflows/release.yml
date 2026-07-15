@@ -1,0 +1,69 @@
+# Release pipeline: push a tag like v0.1.0-beta and this
+#   1. builds + pushes ghcr.io/teq-cloud/iteq-api and iteq-web (tag + latest)
+#   2. packages charts/iteq and publishes it to the gh-pages Helm repo
+#      (https://teq-cloud.github.io/iteq — the URL you register on Artifact Hub)
+#
+# One-time setup:
+#   - create an empty gh-pages branch:
+#       git switch --orphan gh-pages && git commit --allow-empty -m "helm repo" && git push origin gh-pages
+#   - after the first push, set both GHCR packages to PUBLIC:
+#       github.com/orgs/TEQ-cloud/packages → iteq-api / iteq-web → settings → visibility
+#   - keep Chart.yaml version/appVersion in step with the tag you push
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # chart-releaser creates GitHub releases + pushes gh-pages
+  packages: write # GHCR
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Build and push api image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          push: true
+          tags: |
+            ghcr.io/teq-cloud/iteq-api:${{ steps.ver.outputs.version }}
+            ghcr.io/teq-cloud/iteq-api:latest
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          push: true
+          tags: |
+            ghcr.io/teq-cloud/iteq-web:${{ steps.ver.outputs.version }}
+            ghcr.io/teq-cloud/iteq-web:latest
+
+  chart:
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      - name: Publish chart to gh-pages
+        uses: helm/chart-releaser-action@v1.7.0
+        with:
+          charts_dir: charts
+        env:
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

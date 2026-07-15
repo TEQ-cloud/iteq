@@ -17,6 +17,50 @@ not a promise, as the onboarding disclaimer spells out. (Note: a disclaimer cann
 waive statutory law; staying closed and non-commercial is what keeps this out of
 "service offered to the public" territory. Not legal advice.)
 
+## Repo layout
+
+```
+server/          Node.js api (the only stateful logic; builds the api image)
+web/             React PWA (builds the web/nginx image)
+k8s/             raw manifests (kustomize) — what the TEQcloud instance runs
+charts/iteq/     Helm chart (same manifests, parameterised via values.yaml)
+deploy/compose/  docker-compose + Caddy (auto-HTTPS) for non-k8s hosting
+examples/        real-world extras: CNPG cluster, Argo ApplicationSet, ...
+```
+
+One repo on purpose: source, chart and deploy examples version together, so a
+release is one tag → two images → chart bump. Images are built and published
+only by TEQcloud; self-hosters consume the images + chart/compose and override
+parameters (they never need to build).
+
+## Admins (`ADMIN_USERS`)
+
+The `ADMIN_USERS` env var on the api decides who runs the place. It is a
+comma-separated list of usernames (spaces around commas are fine):
+
+```yaml
+- name: ADMIN_USERS
+  value: "quinten, backup-admin"
+```
+
+Accounts whose username is in the list are **auto-approved at signup** and get
+the in-app 👥 approval panel. Everyone else waits in `pending`. To change it:
+edit `k8s/40-api.yaml` (or the `adminUsers` Helm value / `ADMIN_USERS` in the
+compose `.env`) and roll out — it's read at startup, not stored in the
+database, so promoting or demoting an admin is just a config change. The
+username must match an account exactly; create the account after (or before)
+adding it to the list, order doesn't matter.
+
+**Important:** `ADMIN_USERS` reserves a *username* — the server never stores an
+admin PIN. The account only exists once someone signs up with that username and
+picks their own PIN. On a public deployment that's a race: whoever registers the
+admin username first becomes admin. So set **`ADMIN_SETUP_CODE`** (env / Helm
+value `adminSetupCode` / compose `.env`): claiming an admin username at signup
+then requires that code — the UI asks for it automatically. Regular signups are
+unaffected. There are no other secrets to provision: CNPG generates the database
+credentials itself (`<cluster>-app` secret), unless you bring your own — see
+[examples/cnpg.yaml](examples/cnpg.yaml).
+
 ## Architecture
 
 ```
@@ -69,6 +113,11 @@ waive statutory law; staying closed and non-commercial is what keeps this out of
 (success not guaranteed) and keep only **3 days**. Abandoned uploads are cleared
 after 24 h. Deleting a message deletes it for everyone (there is only one copy).
 
+**Accounts** unused for 6 months (`ACCOUNT_RETENTION_DAYS`, default 180) are
+deleted automatically, their chats included — the inactivity clock resets on
+every login/app-open. Configurable via env / Helm value, but note the UI texts
+state the defaults.
+
 ## Local development
 
 ```bash
@@ -86,8 +135,8 @@ HTTPS, browsers refuse to expose WebCrypto and the app cannot run.**
 
 1. Build and push the images (any registry your cluster can pull from):
    ```bash
-   docker build -t <registry>/iteq/api:1.0.0-beta server/ && docker push <registry>/iteq/api:1.0.0-beta
-   docker build -t <registry>/iteq/web:1.0.0-beta web/   && docker push <registry>/iteq/web:1.0.0-beta
+   docker build -t <registry>/iteq/api:0.1.0-beta server/ && docker push <registry>/iteq/api:0.1.0-beta
+   docker build -t <registry>/iteq/web:0.1.0-beta web/   && docker push <registry>/iteq/web:0.1.0-beta
    ```
 2. Edit `k8s/`: image names (`40-api.yaml`, `50-web.yaml`, `70-retention-cronjob.yaml`),
    `ADMIN_USERS` (`40-api.yaml`), storage classes (`10-postgres.yaml`, `30-pvc.yaml`),
@@ -122,6 +171,42 @@ automatically.
 
 `MODE=dev` runs everything in-process/in-memory with `server/data/` as the "PVC" —
 no Postgres or Redis needed.
+
+### Helm instead of raw manifests
+
+```bash
+helm install iteq charts/iteq -n iteq --create-namespace \
+  --set image.api.repository=<registry>/iteq/api \
+  --set image.web.repository=<registry>/iteq/web \
+  --set adminUsers=quinten \
+  --set ingress.host=i.teqcloud.net
+# upgrades: helm upgrade iteq charts/iteq -n iteq -f my-values.yaml
+```
+
+All knobs live in [charts/iteq/values.yaml](charts/iteq/values.yaml) — retention
+days, quotas, HPA ranges, CNPG on/off (bring your own Postgres via
+`postgres.existingUriSecret`), Redis size, cert-manager issuer.
+
+### Docker compose (no Kubernetes)
+
+See [deploy/compose](deploy/compose): `cp .env.example .env`, fill in domain +
+password + admins, `docker compose up -d`. Caddy fetches TLS certificates
+automatically, which satisfies the hard HTTPS requirement.
+
+### Recommended workflow: dev instance next to prod
+
+Test changes on a **second release in its own namespace** rather than on the
+live instance your family uses — same images, same chart, different host:
+
+```bash
+helm install iteq-dev charts/iteq -n iteq-dev --create-namespace \
+  -f dev-values.yaml   # e.g. host=dev.i.teqcloud.net, 1 replica, small PVC
+```
+
+Promote by rolling the exact image tag you validated on dev to prod. That's the
+DevOps loop: identical environments, promote artifacts — without your users
+eating your experiments. (The npm dev mode stays useful for fast UI iteration;
+seconds instead of build-push-rollout minutes.)
 
 ## Operations notes
 

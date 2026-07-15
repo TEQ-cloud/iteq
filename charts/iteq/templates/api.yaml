@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "iteq.fullname" . }}-api
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: {{ include "iteq.fullname" . }}-api
+  template:
+    metadata:
+      labels:
+        app: {{ include "iteq.fullname" . }}-api
+    spec:
+      containers:
+        - name: api
+          image: {{ include "iteq.apiImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: MODE
+              value: prod
+            - name: APP_VERSION
+              value: {{ .Values.image.api.tag | default .Chart.AppVersion | quote }}
+            - name: DATA_DIR
+              value: /data
+            - name: ADMIN_USERS
+              value: {{ .Values.adminUsers | quote }}
+            {{- with .Values.adminSetupCode }}
+            - name: ADMIN_SETUP_CODE
+              value: {{ . | quote }}
+            {{- end }}
+            - name: REDIS_URL
+              value: redis://{{ include "iteq.fullname" . }}-redis:6379
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "iteq.dbSecretName" . }}
+                  key: {{ .Values.postgres.uriSecretKey }}
+            - name: RETENTION_DAYS
+              value: {{ .Values.retention.contentDays | quote }}
+            - name: BIG_RETENTION_DAYS
+              value: {{ .Values.retention.bigFileDays | quote }}
+            - name: ACCOUNT_RETENTION_DAYS
+              value: {{ .Values.retention.accountDays | quote }}
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 10
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "iteq.fullname" . }}-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "iteq.fullname" . }}-api
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ include "iteq.fullname" . }}-api
+  ports:
+    - port: 8080
+{{- if .Values.api.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "iteq.fullname" . }}-api
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "iteq.fullname" . }}-api
+  minReplicas: {{ .Values.api.hpa.minReplicas }}
+  maxReplicas: {{ .Values.api.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.hpa.targetCPU }}
+{{- end }}

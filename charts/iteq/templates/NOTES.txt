@@ -1,0 +1,12 @@
+iTEQ {{ .Chart.AppVersion }} installed as "{{ .Release.Name }}" in namespace {{ .Release.Namespace }}.
+
+Next steps:
+1. DNS: point {{ .Values.ingress.host }} at your ingress controller.
+2. TLS: {{ if .Values.ingress.certManagerClusterIssuer }}cert-manager will issue the certificate.{{ else }}create the "{{ .Values.ingress.tlsSecretName }}" secret yourself (or set ingress.certManagerClusterIssuer).{{ end }}
+   Without HTTPS the app CANNOT work — browsers only expose WebCrypto on secure origins.
+3. Open https://{{ .Values.ingress.host }}/ and create the first account using one of
+   the admin usernames ({{ .Values.adminUsers }}) — it is auto-approved. Everyone
+   else waits in the in-app approval panel until an admin lets them in.
+
+Watch the rollout:   kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "iteq.fullname" . }}-api
+Check live version:  curl https://{{ .Values.ingress.host }}/api/healthz

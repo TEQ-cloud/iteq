@@ -1,0 +1,14 @@
+apiVersion: v2
+name: iteq
+description: >-
+  iTEQ — stay interconnected. Self-hosted, end-to-end encrypted chat for
+  friends and family. Closed by design: every account needs operator approval.
+type: application
+version: 0.1.0
+appVersion: 0.1.0-beta
+home: https://i.teqcloud.net/
+icon: https://raw.githubusercontent.com/TEQ-cloud/iteq/main/app-icon-512.png
+sources:
+  - https://github.com/TEQ-cloud/iteq
+maintainers:
+  - name: TEQcloud (Quinten de Haard)

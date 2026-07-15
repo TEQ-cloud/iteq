@@ -1,0 +1,48 @@
+# GitOps deployment of iTEQ via Argo CD ApplicationSet.
+# The list generator makes it trivial to add a second environment (dev/prod)
+# as another element — same chart, different values.
+#
+# NOTE: ApplicationSets live in Argo CD's own namespace (usually `argocd`),
+# not in the target namespace. Point repoURL at your own fork/values repo if
+# you keep environment values in git (recommended).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: iteq
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - cluster: https://kubernetes.default.svc
+            namespace: iteq
+            application: iteq
+            host: i.teqcloud.net
+          # add a dev environment by adding a second element:
+          # - cluster: https://kubernetes.default.svc
+          #   namespace: iteq-dev
+          #   application: iteq
+          #   host: dev.i.teqcloud.net
+  template:
+    metadata:
+      name: '{{namespace}}'
+    spec:
+      project: chat # your Argo CD project (or "default")
+      source:
+        repoURL: https://github.com/TEQ-cloud/iteq.git
+        targetRevision: main
+        path: 'charts/{{application}}'
+        helm:
+          releaseName: '{{namespace}}'
+          # Inline values for the example; in practice point valueFiles at a
+          # values repo of your own, e.g. env/prod-values.yaml.
+          values: |
+            ingress:
+              host: '{{host}}'
+            adminUsers: "quinten"
+      destination:
+        server: '{{cluster}}'
+        namespace: '{{namespace}}'
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true

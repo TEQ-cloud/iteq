@@ -1,0 +1,64 @@
+# iTEQ via docker compose — the small-scale alternative to the Helm chart.
+# Copy .env.example to .env, fill it in, then: docker compose up -d
+#
+# Caddy terminates TLS with automatic Let's Encrypt certificates. HTTPS is
+# REQUIRED: browsers only expose WebCrypto (the E2EE API) on secure origins,
+# so iTEQ cannot run on plain http.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: iteq
+      POSTGRES_USER: iteq
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    # RAM-chat tier: persistence disabled on purpose — a restart clears
+    # non-persistent chats, exactly as the UI promises.
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save '' --appendonly no --maxmemory ${REDIS_MAXMEMORY:-2gb} --maxmemory-policy noeviction
+
+  api:
+    image: ${IMAGE_API:-ghcr.io/teq-cloud/iteq-api:0.1.0-beta}
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      MODE: prod
+      DATA_DIR: /data
+      DATABASE_URL: postgres://iteq:${DB_PASSWORD}@db:5432/iteq
+      REDIS_URL: redis://redis:6379
+      ADMIN_USERS: ${ADMIN_USERS:?set ADMIN_USERS in .env}
+      ADMIN_SETUP_CODE: ${ADMIN_SETUP_CODE:-}
+      APP_VERSION: ${IMAGE_TAG:-0.1.0-beta}
+      RETENTION_DAYS: ${RETENTION_DAYS:-7}
+      BIG_RETENTION_DAYS: ${BIG_RETENTION_DAYS:-3}
+      ACCOUNT_RETENTION_DAYS: ${ACCOUNT_RETENTION_DAYS:-180}
+    volumes:
+      - iteq-data:/data
+
+  web:
+    image: ${IMAGE_WEB:-ghcr.io/teq-cloud/iteq-web:0.1.0-beta}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  iteq-data:
+  caddy-data:
+  caddy-config:

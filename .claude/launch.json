@@ -5,7 +5,7 @@
       "name": "iteq-dev",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server/src/index.js"],
-      "env": { "MODE": "dev", "ADMIN_USERS": "quinten" },
+      "env": { "MODE": "dev", "ADMIN_USERS": "quinten", "ADMIN_SETUP_CODE": "dev-code" },
       "port": 8080
     }
   ]

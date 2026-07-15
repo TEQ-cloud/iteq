@@ -108,6 +108,11 @@ export const pstore = {
     await fsp.rm(path.join(fileDir(chatId), `${fileId}.meta.json`), { force: true });
   },
 
+  // Remove a whole chat's directory (used when inactive accounts are purged).
+  async delChat(chatId) {
+    await fsp.rm(chatDir(chatId), { recursive: true, force: true });
+  },
+
   // Retention sweep: messages past retainUntil, files past retainUntil.
   async sweep(nowTs) {
     let chats;

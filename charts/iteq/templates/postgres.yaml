@@ -1,0 +1,20 @@
+{{- if .Values.postgres.cnpg.enabled }}
+# CloudNativePG cluster — account/chat metadata only, never message content.
+# CNPG creates the secret "{{ include "iteq.fullname" . }}-db-app" (key: uri).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "iteq.fullname" . }}-db
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgres.cnpg.instances }}
+  storage:
+    size: {{ .Values.postgres.cnpg.size }}
+    {{- with .Values.postgres.cnpg.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  bootstrap:
+    initdb:
+      database: iteq
+      owner: iteq
+{{- end }}

@@ -1,0 +1,86 @@
+# iTEQ Helm values. The chart mirrors k8s/ (the raw manifests) 1:1.
+
+image:
+  api:
+    repository: ghcr.io/teq-cloud/iteq-api # or your own registry
+    tag: "" # defaults to the chart appVersion
+  web:
+    repository: ghcr.io/teq-cloud/iteq-web # or your own registry
+    tag: ""
+  pullPolicy: IfNotPresent
+
+# Comma-separated usernames (spaces allowed). These accounts are auto-approved
+# at signup and get the in-app approval panel for everyone else.
+adminUsers: "quinten"
+
+# STRONGLY RECOMMENDED on public deployments: a code required to *claim* an
+# admin username at signup. Without it, whoever registers the admin username
+# first becomes admin. Empty = no code required.
+adminSetupCode: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: i.teqcloud.net
+  tlsSecretName: iteq-tls
+  # Set to a cert-manager ClusterIssuer name to have the cert issued for you;
+  # leave empty if you create the TLS secret yourself. HTTPS is REQUIRED:
+  # browsers only expose WebCrypto (the E2EE API) on secure origins.
+  certManagerClusterIssuer: ""
+  annotations: {}
+
+# The shared RWX volume for persistent chats (ciphertext only).
+storage:
+  size: 100Gi
+  className: "" # an RWX-capable class: nfs-client, cephfs, longhorn (RWX), ...
+
+postgres:
+  # Provision a CloudNativePG cluster (requires the CNPG operator).
+  cnpg:
+    enabled: true
+    instances: 2
+    size: 5Gi
+    storageClass: ""
+  # If cnpg.enabled=false, point at your own secret containing a Postgres URI.
+  existingUriSecret: ""
+  uriSecretKey: uri
+
+redis:
+  # RAM-chat tier: persistence is disabled on purpose. Size to your hardware.
+  maxmemory: 8gb
+  memoryLimit: 9Gi # keep ~1Gi above maxmemory
+  resources:
+    requests: { cpu: 100m, memory: 1Gi }
+
+api:
+  replicas: 2
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPU: 70
+
+web:
+  replicas: 2
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 128Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPU: 70
+
+# Storage/retention rules. NOTE: the web UI copy states the defaults (7 days,
+# 1 GB / 2 GB / 5 GB, 6 months); if you change these, the enforcement changes
+# but the built-in texts don't.
+retention:
+  contentDays: 7      # chat content (messages + files), both storage modes
+  bigFileDays: 3      # files over the big-file threshold
+  accountDays: 180    # accounts unused this long are deleted, chats included
+
+retentionCronJob:
+  schedule: "0 3 * * *"

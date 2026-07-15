@@ -35,6 +35,10 @@ export function createMemoryStore() {
       const u = users.get(id);
       if (u) u.status = status;
     },
+    async touchUser(id, ts) {
+      const u = users.get(id);
+      if (u) u.lastSeen = ts;
+    },
     async listPendingUsers() {
       return [...users.values()].filter((u) => u.status === 'pending')
         .map((u) => ({ id: u.id, username: u.username, createdAt: u.createdAt }));
@@ -172,6 +176,25 @@ export function createMemoryStore() {
     },
     subscribe(fn) {
       bus.on('event', fn);
+    },
+
+    // Inactive-account cleanup: the account and every chat it is part of go.
+    // Returns the ids of removed chats so the caller can purge PVC data too.
+    async sweepAccounts(nowTs) {
+      const removedChats = [];
+      for (const u of [...users.values()]) {
+        const lastSeen = u.lastSeen || u.createdAt;
+        if (nowTs - lastSeen <= config.accountRetentionMs) continue;
+        for (const c of [...chats.values()]) {
+          if (!c.members.has(u.id)) continue;
+          chats.delete(c.id);
+          npMsgs.delete(c.id);
+          for (const [fileId, f] of npFiles) if (f.meta.chatId === c.id) npFiles.delete(fileId);
+          removedChats.push(c.id);
+        }
+        await this.deleteUser(u.id);
+      }
+      return removedChats;
     },
 
     // --- retention sweep for RAM data ---

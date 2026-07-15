@@ -15,9 +15,25 @@ export function ChatApp({ ident, onLogout }) {
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('iteq.tourDone'));
   const [showAdmin, setShowAdmin] = useState(false);
   const [pending, setPending] = useState([]);
+  const [notifPerm, setNotifPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const keysRef = useRef(new Map()); // chatId -> CryptoKey
   const chatsRef = useRef([]);
+  const activeIdRef = useRef(null);
   chatsRef.current = chats;
+  activeIdRef.current = activeId;
+
+  // In-tab notifications: fired when a message arrives for a hidden tab or an
+  // unopened chat. (Push while the app is closed is a v0.2.0 feature.)
+  const maybeNotify = useCallback((chat, dm) => {
+    if (notifPerm !== 'granted' || dm.senderId === ident.user.id) return;
+    if (!document.hidden && activeIdRef.current === chat.id) return;
+    const body = dm.dec?.text || (dm.file ? `📎 ${dm.fileMeta?.name || 'file'}` : 'New message');
+    try {
+      const n = new Notification(chat.name, { body, icon: '/app-icon-192.png', tag: chat.id });
+      n.onclick = () => { window.focus(); openChatRef.current?.(chat); n.close(); };
+    } catch { /* some browsers restrict constructor use */ }
+  }, [notifPerm, ident.user.id]);
+  const openChatRef = useRef(null);
 
   const keyFor = useCallback(async (chat) => {
     if (keysRef.current.has(chat.id)) return keysRef.current.get(chat.id);
@@ -79,6 +95,7 @@ export function ChatApp({ ident, onLogout }) {
         setChats((prev) => prev
           .map((c) => (c.id === event.chatId ? { ...c, lastTs: event.msg.ts } : c))
           .sort((a, b) => b.lastTs - a.lastTs));
+        maybeNotify(chat, dm);
       } else if (event.type === 'message.deleted') {
         setMsgsByChat((prev) => {
           const list = prev[event.chatId];
@@ -88,18 +105,17 @@ export function ChatApp({ ident, onLogout }) {
       }
     }, setWsOn);
     return stop;
-  }, [keyFor, decorateMsg, loadChats]);
+  }, [keyFor, decorateMsg, loadChats, maybeNotify]);
 
   // --- actions ---
   const openChat = async (chat) => {
     setActiveId(chat.id);
-    if (!msgsByChat[chat.id]) {
-      const key = await keyFor(chat);
-      const { messages } = await api.messages(chat.id);
-      const decorated = await Promise.all(messages.map((m) => decorateMsg(m, key)));
-      setMsgsByChat((prev) => ({ ...prev, [chat.id]: decorated }));
-    }
+    const key = await keyFor(chat);
+    const { messages } = await api.messages(chat.id);
+    const decorated = await Promise.all(messages.map((m) => decorateMsg(m, key)));
+    setMsgsByChat((prev) => ({ ...prev, [chat.id]: decorated }));
   };
+  openChatRef.current = openChat;
 
   const createChat = async (peerUsername, storage) => {
     const peer = await api.lookupUser(peerUsername);
@@ -170,6 +186,10 @@ export function ChatApp({ ident, onLogout }) {
               onClick={() => { loadPending(); setShowAdmin(true); }}>
               👥{pending.length > 0 && <span className="count-badge">{pending.length}</span>}
             </button>
+          )}
+          {notifPerm === 'default' && (
+            <button className="btn-ghost" title="Enable notifications"
+              onClick={async () => setNotifPerm(await Notification.requestPermission())}>🔔</button>
           )}
           <button className="btn-ghost" title="How iTEQ works" onClick={() => setShowTour(true)}>？</button>
           <span className={`conn-dot ${wsOn ? 'on' : ''}`} title={wsOn ? 'Connected' : 'Reconnecting…'} />
