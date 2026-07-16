@@ -1,8 +1,10 @@
 # iTEQ — stay interconnected
 
 Self-hosted, end-to-end encrypted chat for friends and family (the **i** stands for
-*interconnected*). Runs on Kubernetes at https://i.teqcloud.net/, works in any modern
-browser on iOS, Android, PC and Mac (installable as a PWA via "Add to Home Screen").
+*interconnected*). Runs on your own containerized, self-hosted infrastructure —
+Kubernetes (Helm chart or raw manifests) or plain docker compose — and works in any
+modern browser on iOS, Android, PC and Mac (installable as a PWA via "Add to Home
+Screen").
 
 Built to keep private conversations private: the server only ever sees ciphertext,
 made-up usernames, UUIDs, timestamps and sizes. No search, no directory, no read
@@ -20,20 +22,32 @@ waive statutory law; staying closed and non-commercial is what keeps this out of
 ## Why iTEQ exists
 
 In July 2026 the EU pushed through the "Chat Control" law: messaging providers
-can be compelled to scan private communications — including on platforms whose
-end-to-end encryption used to mean *nobody can read this*, like Signal,
-WhatsApp and iMessage. Add big-tech clouds feeding everything into AI
-pipelines, and the only way left to *know* where your conversations go is to
-run the server yourself.
+can be compelled to scan private communications — even on platforms whose
+end-to-end encryption genuinely meant *nobody reads this*, like Signal and
+iMessage. And that was already the trustworthy end of the market: WhatsApp may
+be encrypted on the wire, but it belongs to Meta — one of the biggest AI
+trainers on the planet, in the same league as Google with Gmail (contrast
+Proton, which is private, encrypted, and doesn't train AI on your data).
+Between scanning laws and AI pipelines, the only way left to *know* where your
+conversations go is to run the server yourself.
 
-There's also a quieter, more personal kind of reason. Some people in our lives
-follow modesty practices — religious or personal — that make it unacceptable
-for private photos to pass through or rest on computers owned by strangers, no
-matter what a privacy policy promises. iTEQ's answer is technical, not
-contractual: every message, file and chat name is encrypted **in the browser,
-before it leaves the device**. The server — even ours, even its operator —
-only ever relays and stores ciphertext. What's private stays private, on
-hardware we own.
+Two facts make that worth the trouble for far more people than homelab
+enthusiasts:
+
+- **A large part of the world is privacy-bound by conviction.** Around two
+  billion Muslims — and many people of other faiths or none — follow religious
+  or personal modesty practices under which private photos must not pass
+  through or rest on computers owned by strangers. "Trust our privacy policy"
+  was never going to be good enough for that.
+- **Your children are not AI training data.** Family photos sent through a
+  big-tech platform can be scanned, classified and learned from. Terms of
+  service change; what a model has ingested never comes back out.
+
+iTEQ's answer is technical, not contractual: every message, file and chat name
+is encrypted **in the browser, before it leaves the device**. The server only
+ever relays and stores ciphertext — and whoever runs it is no provider, just
+another user with the same app on their own homelab hardware. What's private
+stays private, on hardware you own.
 
 That's also why iTEQ is deliberately small and closed: approval-gated
 accounts, no search, no directory, minimal metadata, everything deleted within
@@ -45,7 +59,7 @@ house.
 ```
 server/          Node.js api (the only stateful logic; builds the api image)
 web/             React PWA (builds the web/nginx image)
-k8s/             raw manifests (kustomize) — what the TEQcloud instance runs
+k8s/             raw manifests (kustomize) — the author's homelab, as a worked example
 charts/iteq/     Helm chart (same manifests, parameterised via values.yaml)
 deploy/compose/  docker-compose + Caddy (auto-HTTPS) for non-k8s hosting
 examples/        real-world extras: CNPG cluster, Argo ApplicationSet, ...
@@ -156,23 +170,26 @@ Cluster prerequisites: CNPG operator, an RWX-capable storage class, an ingress
 controller (nginx), **metrics-server** (the HPAs need it), and TLS — **without
 HTTPS, browsers refuse to expose WebCrypto and the app cannot run.**
 
-1. Build and push the images (any registry your cluster can pull from):
+1. Use the published images (`ghcr.io/teq-cloud/iteq-api` and `iteq-web` — the
+   manifests already point at them), or build your own:
    ```bash
    docker build -t <registry>/iteq/api:0.1.0-beta server/ && docker push <registry>/iteq/api:0.1.0-beta
    docker build -t <registry>/iteq/web:0.1.0-beta web/   && docker push <registry>/iteq/web:0.1.0-beta
    ```
 2. Edit `k8s/`: image names (`40-api.yaml`, `50-web.yaml`, `70-retention-cronjob.yaml`),
-   `ADMIN_USERS` (`40-api.yaml`), storage classes (`10-postgres.yaml`, `30-pvc.yaml`),
-   Redis `maxmemory` (`20-redis.yaml`). The ingress is already set to `i.teqcloud.net`.
-3. DNS: point `i.teqcloud.net` at your ingress. TLS: either uncomment the cert-manager
+   `ADMIN_USERS` + `ADMIN_SETUP_CODE` (`40-api.yaml`), storage classes (`10-postgres.yaml`,
+   `30-pvc.yaml`), Redis `maxmemory` (`20-redis.yaml`), and your hostname in
+   `60-ingress.yaml` (the checked-in value is the author's homelab).
+3. DNS: point your hostname at your ingress. TLS: either uncomment the cert-manager
    annotation in `60-ingress.yaml` or create the `iteq-tls` secret yourself.
 4. `kubectl apply -k k8s/`, then watch it come up:
    ```bash
    kubectl -n iteq get pods -w
    kubectl -n iteq rollout status deploy/iteq-api
    ```
-5. Open the site, create the `quinten` account (auto-approved: it's in `ADMIN_USERS`).
-   Everyone else who signs up waits in the 👥 panel until you approve them.
+5. Open the site and create your admin account — the username you put in
+   `ADMIN_USERS`, plus your `ADMIN_SETUP_CODE` (the UI asks for it). Everyone
+   else who signs up waits in the 👥 panel until you approve them.
 
 ### Rolling updates (DevOps-style)
 
@@ -187,7 +204,7 @@ kubectl -n iteq rollout undo deploy/iteq-api      # instant rollback if needed
 ```
 
 The api reports its running version, so you can always check what's live:
-`curl https://i.teqcloud.net/api/healthz` → `{"ok":true,"version":"1.0.1-beta"}`.
+`curl https://chat.example.com/api/healthz` → `{"ok":true,"version":"1.0.1-beta"}`.
 During the beta, drop the iOS "Add to Home Screen" screenshot in as
 `web/public/tour-ios.png` and rebuild the web image — the in-app tour picks it up
 automatically.
@@ -229,7 +246,7 @@ live instance your family uses — same images, same chart, different host:
 
 ```bash
 helm install iteq-dev charts/iteq -n iteq-dev --create-namespace \
-  -f dev-values.yaml   # e.g. host=dev.i.teqcloud.net, 1 replica, small PVC
+  -f dev-values.yaml   # e.g. host=dev.chat.example.com, 1 replica, small PVC
 ```
 
 Promote by rolling the exact image tag you validated on dev to prod. That's the
