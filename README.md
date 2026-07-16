@@ -224,3 +224,10 @@ seconds instead of build-push-rollout minutes.)
   (usernames/keys) are not covered by that promise — chat data is.
 - Messages over the wire and at rest are ciphertext; if you must debug, sizes,
   timestamps and UUIDs are all you'll get. That's the point.
+
+## License
+
+[Apache-2.0](LICENSE). Free to use, self-host, and modify — but the
+[NOTICE](NOTICE) file (the "made by Quinten / TEQcloud" credit) must stay with
+every redistribution, as per section 4(d) of the license. Feature requests and
+contributions are welcome on GitHub.
