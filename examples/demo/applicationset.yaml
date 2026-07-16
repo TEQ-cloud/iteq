@@ -1,0 +1,43 @@
+# iTEQ Argo CD demo — video 3: argo-demo.teqcloud.net
+#
+# Uses the SAME prod-values.yaml as the Helm video (committed in the pulled
+# repo at charts/iteq/env/prod-values.yaml), and overrides only the hostname
+# inline — demonstrating the "one values file + per-app override" pattern.
+# Apply in Argo CD's namespace:  kubectl apply -f applicationset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: iteq-demo
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - cluster: https://kubernetes.default.svc
+            namespace: iteq-argo-demo
+            application: iteq
+  template:
+    metadata:
+      name: '{{namespace}}'
+    spec:
+      project: default # or your own Argo CD project
+      source:
+        repoURL: https://github.com/TEQ-cloud/iteq.git # your fork with the filled-in prod-values.yaml
+        targetRevision: main
+        path: 'charts/{{application}}'
+        helm:
+          releaseName: '{{namespace}}'
+          valueFiles:
+            - env/prod-values.yaml # the Helm video's file, unchanged
+          values: | # manual override: only the hostname differs from the Helm demo
+            ingress:
+              host: argo-demo.teqcloud.net
+      destination:
+        server: '{{cluster}}'
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

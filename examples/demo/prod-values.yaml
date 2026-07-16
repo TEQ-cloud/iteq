@@ -1,0 +1,36 @@
+# iTEQ Helm demo values — video 2: helm-demo.teqcloud.net
+#
+# Plain Helm uses this file directly:
+#   helm repo add iteq https://teq-cloud.github.io/iteq
+#   helm install iteq iteq/iteq -n iteq-helm-demo --create-namespace -f prod-values.yaml
+#
+# For the Argo CD video (video 3), this same file lives in the repo Argo pulls,
+# at charts/iteq/env/prod-values.yaml — the ApplicationSet's valueFiles points
+# there and only overrides the hostname inline.
+ingress:
+  host: helm-demo.teqcloud.net
+  className: nginx
+  # certManagerClusterIssuer: letsencrypt   # or create the iteq-tls secret yourself
+
+adminUsers: "quinten"
+adminSetupCode: "demo-change-me" # set something real before recording ;)
+
+storage:
+  size: 20Gi # demo-sized; the real default is 100Gi
+  className: "" # your RWX-capable class (nfs-client, cephfs, longhorn, ...)
+
+postgres:
+  cnpg:
+    instances: 1 # demo-sized
+    size: 2Gi
+
+redis:
+  maxmemory: 1gb
+  memoryLimit: 1536Mi
+
+api:
+  replicas: 1
+  hpa: { enabled: false, minReplicas: 1, maxReplicas: 2, targetCPU: 70 }
+web:
+  replicas: 1
+  hpa: { enabled: false, minReplicas: 1, maxReplicas: 2, targetCPU: 70 }

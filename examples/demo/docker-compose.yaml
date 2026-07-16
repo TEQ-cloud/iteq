@@ -1,0 +1,59 @@
+# iTEQ compose demo — video 1: compose-demo.teqcloud.net
+# Fully self-contained: no Caddyfile, no .env. Point DNS at the box, then:
+#   docker compose -f docker-compose.yaml up -d
+# Caddy fetches the Let's Encrypt certificate automatically (ports 80+443 must
+# be reachable from the internet). HTTPS is required — WebCrypto won't run
+# without it. Change the passwords/codes before going live, obviously.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: iteq
+      POSTGRES_USER: iteq
+      POSTGRES_PASSWORD: demo-change-me
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    # non-persistent chat tier: persistence off on purpose
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save '' --appendonly no --maxmemory 2gb --maxmemory-policy noeviction
+
+  api:
+    image: ghcr.io/teq-cloud/iteq-api:0.1.0-beta
+    restart: unless-stopped
+    depends_on: [db, redis]
+    environment:
+      MODE: prod
+      DATA_DIR: /data
+      DATABASE_URL: postgres://iteq:demo-change-me@db:5432/iteq
+      REDIS_URL: redis://redis:6379
+      ADMIN_USERS: quinten
+      ADMIN_SETUP_CODE: demo-change-me
+    volumes:
+      - iteq-data:/data
+
+  web:
+    # complete entrypoint: serves the app and proxies /api + /ws to the api
+    image: ghcr.io/teq-cloud/iteq-web:0.1.0-beta
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      API_UPSTREAM: api:8080
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from compose-demo.teqcloud.net --to web:8080
+    volumes:
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  iteq-data:
+  caddy-data:

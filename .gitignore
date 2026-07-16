@@ -2,4 +2,6 @@ node_modules/
 dist/
 server/data/
 .DS_Store
+# personal blog drafts — published on the blogs, never in the public repo
+blog-drafts/
 .claude/
