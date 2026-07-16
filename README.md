@@ -174,18 +174,24 @@ no Postgres or Redis needed.
 
 ### Helm instead of raw manifests
 
+Keep every override in one file — [charts/iteq/env/prod-values.yaml](charts/iteq/env/prod-values.yaml)
+— so plain Helm and GitOps (see [examples/applicationset.yaml](examples/applicationset.yaml))
+read the same source of truth:
+
 ```bash
 helm install iteq charts/iteq -n iteq --create-namespace \
-  --set image.api.repository=<registry>/iteq/api \
-  --set image.web.repository=<registry>/iteq/web \
-  --set adminUsers=quinten \
-  --set ingress.host=i.teqcloud.net
-# upgrades: helm upgrade iteq charts/iteq -n iteq -f my-values.yaml
+  -f charts/iteq/env/prod-values.yaml
+# upgrades: helm upgrade iteq charts/iteq -n iteq -f charts/iteq/env/prod-values.yaml
 ```
 
 All knobs live in [charts/iteq/values.yaml](charts/iteq/values.yaml) — retention
 days, quotas, HPA ranges, CNPG on/off (bring your own Postgres via
-`postgres.existingUriSecret`), Redis size, cert-manager issuer.
+`postgres.existingUriSecret`), Redis size, cert-manager issuer. The web pod is
+a complete entrypoint (its nginx proxies `/api` and `/ws` to the api), so any
+edge works: any ingress class (nginx helper annotations are only added when
+`ingress.className=nginx`), a cloudflared tunnel, or a tailscale-exposed web
+service with the ingress disabled — examples in the
+[chart README](charts/iteq/README.md).
 
 ### Docker compose (no Kubernetes)
 

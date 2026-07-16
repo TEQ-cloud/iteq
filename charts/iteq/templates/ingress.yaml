@@ -6,9 +6,13 @@ metadata:
   name: {{ include "iteq.fullname" . }}
   labels: {{- include "iteq.labels" . | nindent 4 }}
   annotations:
+    {{- if eq .Values.ingress.className "nginx" }}
+    # nginx-specific: allow 8 MiB upload chunks, keep WebSockets open.
+    # Other controllers: add their equivalents via .Values.ingress.annotations.
     nginx.ingress.kubernetes.io/proxy-body-size: 16m
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    {{- end }}
     {{- with .Values.ingress.certManagerClusterIssuer }}
     cert-manager.io/cluster-issuer: {{ . }}
     {{- end }}

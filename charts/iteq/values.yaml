@@ -18,16 +18,26 @@ adminUsers: "quinten"
 # first becomes admin. Empty = no code required.
 adminSetupCode: ""
 
+# The web service is a complete entrypoint (its nginx proxies /api and /ws to
+# the api), so ANY edge works: an Ingress of whatever class, a cloudflared
+# tunnel, or a tailscale/LoadBalancer-exposed web service with ingress
+# disabled. HTTPS is REQUIRED wherever TLS terminates: browsers only expose
+# WebCrypto (the E2EE API) on secure origins.
 ingress:
   enabled: true
+  # Any class works (traefik, ...). Helper annotations for large uploads and
+  # long-lived WebSockets are added automatically ONLY when className=nginx —
+  # for other controllers add their equivalents under `annotations`.
   className: nginx
-  host: i.teqcloud.net
+  host: localhost # CHANGE ME: your real hostname
   tlsSecretName: iteq-tls
   # Set to a cert-manager ClusterIssuer name to have the cert issued for you;
-  # leave empty if you create the TLS secret yourself. HTTPS is REQUIRED:
-  # browsers only expose WebCrypto (the E2EE API) on secure origins.
+  # leave empty if you create the TLS secret yourself.
   certManagerClusterIssuer: ""
   annotations: {}
+  # e.g. for traefik:
+  #   traefik.ingress.kubernetes.io/router.entrypoints: websecure
+  #   traefik.ingress.kubernetes.io/router.tls: "true"
 
 # The shared RWX volume for persistent chats (ciphertext only).
 storage:
@@ -73,6 +83,18 @@ web:
     minReplicas: 2
     maxReplicas: 4
     targetCPU: 70
+  # Customize how the web entrypoint is exposed — e.g. tailscale operator:
+  #   service:
+  #     type: LoadBalancer
+  #     loadBalancerClass: tailscale
+  #     annotations:
+  #       tailscale.com/hostname: "iteq"
+  #       tailscale.com/tags: "tag:teqcloud"
+  # (combine with ingress.enabled=false)
+  service:
+    type: ClusterIP
+    loadBalancerClass: ""
+    annotations: {}
 
 # Storage/retention rules. NOTE: the web UI copy states the defaults (7 days,
 # 1 GB / 2 GB / 5 GB, 6 months); if you change these, the enforcement changes

@@ -1,10 +1,15 @@
 # GitOps deployment of iTEQ via Argo CD ApplicationSet.
-# The list generator makes it trivial to add a second environment (dev/prod)
-# as another element — same chart, different values.
 #
-# NOTE: ApplicationSets live in Argo CD's own namespace (usually `argocd`),
-# not in the target namespace. Point repoURL at your own fork/values repo if
-# you keep environment values in git (recommended).
+# Best practice: keep ALL your overrides in charts/iteq/env/prod-values.yaml —
+# the same file works for plain `helm install -f` and for Argo CD, so there is
+# exactly one place where your environment differs from the chart defaults.
+# That file lives in YOUR git repo: fork/copy this repo (or vendor the chart
+# into your own k8s repo) and point repoURL at it — Argo CD needs a repo it
+# can pull, and your values don't belong in someone else's.
+#
+# ApplicationSets live in Argo CD's own namespace (usually `argocd`), not in
+# the target namespace. The list generator makes a second environment (dev)
+# a three-line addition.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -17,29 +22,28 @@ spec:
           - cluster: https://kubernetes.default.svc
             namespace: iteq
             application: iteq
-            host: i.teqcloud.net
-          # add a dev environment by adding a second element:
+          # add a dev environment (with its own env/dev-values.yaml):
           # - cluster: https://kubernetes.default.svc
           #   namespace: iteq-dev
           #   application: iteq
-          #   host: dev.i.teqcloud.net
   template:
     metadata:
       name: '{{namespace}}'
     spec:
       project: chat # your Argo CD project (or "default")
       source:
-        repoURL: https://github.com/TEQ-cloud/iteq.git
+        repoURL: https://github.com/example/repo.git # CHANGE ME: your ArgoCD fork/repo
         targetRevision: main
         path: 'charts/{{application}}'
         helm:
           releaseName: '{{namespace}}'
-          # Inline values for the example; in practice point valueFiles at a
-          # values repo of your own, e.g. env/prod-values.yaml.
-          values: |
-            ingress:
-              host: '{{host}}'
-            adminUsers: "quinten"
+          valueFiles:
+            - env/prod-values.yaml # relative to `path` — your single overrides file
+          # Optional extra: inline values on top of the file, e.g. to vary a
+          # field per generator element without another values file:
+          # values: |
+          #   ingress:
+          #     host: '{{namespace}}.teqcloud.net'
       destination:
         server: '{{cluster}}'
         namespace: '{{namespace}}'

@@ -25,18 +25,58 @@ That keeps your deployment a private circle, not a public service.
 
 ## Install
 
+Put your overrides in one values file (see [env/prod-values.yaml](env/prod-values.yaml)
+for the pattern — the same file works for plain Helm and for Argo CD):
+
 ```bash
 helm repo add iteq https://teq-cloud.github.io/iteq
-helm install iteq iteq/iteq -n iteq --create-namespace \
-  --set ingress.host=chat.example.com \
-  --set adminUsers=yourname \
-  --set adminSetupCode=pick-a-code \
-  --set storage.className=your-rwx-class
+helm install iteq iteq/iteq -n iteq --create-namespace -f my-values.yaml
+```
+
+Minimal `my-values.yaml`:
+
+```yaml
+ingress:
+  host: chat.example.com
+adminUsers: "yourname"
+adminSetupCode: "pick-a-code"
+storage:
+  className: your-rwx-class
 ```
 
 Then open your host, sign up with the admin username + the setup code (asked
 automatically) — that account is auto-approved and approves everyone else from
 the in-app 👥 panel.
+
+## Any edge you like
+
+The web service is a **complete entrypoint**: its nginx serves the app and
+proxies `/api` + `/ws` to the api service. So every exposure style works:
+
+- **Ingress, any class** — set `ingress.className` (nginx gets its helper
+  annotations automatically; for others add equivalents yourself):
+  ```yaml
+  ingress:
+    className: traefik
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.tls.certresolver: cloudflare
+  ```
+- **Tailscale operator** — no ingress, expose the web service on your tailnet
+  (Tailscale serves HTTPS, which satisfies the WebCrypto requirement):
+  ```yaml
+  ingress:
+    enabled: false
+  web:
+    service:
+      type: LoadBalancer
+      loadBalancerClass: tailscale
+      annotations:
+        tailscale.com/hostname: "iteq"
+  ```
+- **cloudflared** — `ingress.enabled=false`, point the tunnel at
+  `http://<release>-web:8080`; Cloudflare terminates TLS.
 
 ## Key values
 
@@ -44,7 +84,9 @@ the in-app 👥 panel.
 |---|---|---|
 | `adminUsers` | `"quinten"` | Comma-separated usernames that are auto-approved and act as admins |
 | `adminSetupCode` | `""` | Code required to *claim* an admin username at signup — set it on public deployments |
-| `ingress.host` | `i.teqcloud.net` | Your hostname |
+| `ingress.host` | `localhost` | Your hostname |
+| `ingress.className` | `nginx` | Any ingress class; nginx gets helper annotations automatically |
+| `web.service.*` | `ClusterIP` | Type/annotations/loadBalancerClass for the web entrypoint (tailscale etc.) |
 | `ingress.certManagerClusterIssuer` | `""` | cert-manager ClusterIssuer; empty = bring your own TLS secret |
 | `storage.size` / `storage.className` | `100Gi` / `""` | RWX volume for persistent chats (ciphertext) |
 | `postgres.cnpg.enabled` | `true` | Provision a CNPG cluster; disable to bring your own DB |

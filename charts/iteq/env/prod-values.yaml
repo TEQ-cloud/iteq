@@ -1,0 +1,25 @@
+# Your environment's values live HERE — one file for every override, whether
+# you deploy with plain Helm or GitOps (Argo CD points its valueFiles at this
+# same file, see examples/applicationset.yaml):
+#
+#   helm install iteq charts/iteq -n iteq --create-namespace \
+#     -f charts/iteq/env/prod-values.yaml
+#
+# Anything not set here falls back to the chart defaults in ../values.yaml.
+# Typical overrides:
+#
+# ingress:
+#   host: chat.example.com
+#   className: traefik
+#   annotations:
+#     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+#     traefik.ingress.kubernetes.io/router.tls: "true"
+#
+# adminUsers: "yourname"
+# adminSetupCode: "pick-a-code"
+#
+# storage:
+#   className: your-rwx-class
+#
+# redis:
+#   maxmemory: 4gb

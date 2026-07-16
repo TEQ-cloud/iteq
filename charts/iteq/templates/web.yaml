@@ -22,6 +22,9 @@ spec:
         - name: web
           image: {{ include "iteq.webImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: API_UPSTREAM # web nginx proxies /api and /ws here
+              value: {{ include "iteq.fullname" . }}-api:8080
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -34,7 +37,15 @@ kind: Service
 metadata:
   name: {{ include "iteq.fullname" . }}-web
   labels: {{- include "iteq.labels" . | nindent 4 }}
+  {{- with .Values.web.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  type: {{ .Values.web.service.type }}
+  {{- with .Values.web.service.loadBalancerClass }}
+  loadBalancerClass: {{ . }}
+  {{- end }}
   selector:
     app: {{ include "iteq.fullname" . }}-web
   ports:

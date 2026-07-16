@@ -43,6 +43,9 @@ services:
   web:
     image: ${IMAGE_WEB:-ghcr.io/teq-cloud/iteq-web:0.1.0-beta}
     restart: unless-stopped
+    depends_on: [api]
+    environment:
+      API_UPSTREAM: api:8080 # web nginx proxies /api and /ws here
 
   caddy:
     image: caddy:2-alpine
