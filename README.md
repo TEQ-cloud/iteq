@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="app-icon-512.png" alt="iTEQ logo" width="160">
+</p>
+
 # iTEQ — stay interconnected
 
 Self-hosted, end-to-end encrypted chat for friends and family (the **i** stands for
