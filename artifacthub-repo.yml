@@ -1,0 +1,9 @@
+# Artifact Hub repository metadata — lives next to index.yaml on gh-pages.
+# The repositoryID below must match the ID Artifact Hub assigned when the
+# repository was added in the control panel (https://artifacthub.io/control-panel):
+# open the repo entry there and copy its ID over the placeholder. On the next
+# scan (~30 min) the "Verified Publisher" badge appears.
+repositoryID: d251aabe-1188-49f6-8c71-b0263eea7a5c
+owners:
+  - name: TEQcloud (Quinten de Haard)
+    email: quinten.dehaard@teqcloud.net
