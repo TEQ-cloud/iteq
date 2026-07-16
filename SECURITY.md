@@ -1,6 +1,6 @@
 # Security policy
 
-iTEQ is a small, beta, self-hosted project — but it's a *cryptographic* one,
+iTEQ is a small, self-hosted project — but it's a *cryptographic* one,
 so security reports are taken seriously.
 
 ## Reporting a vulnerability

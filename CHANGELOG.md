@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1-beta — 2026-07-16
+
+- Landing page is now operator-neutral: instances no longer hardcode the
+  TEQcloud/operator identity, and "Host yourself" points at the project page.
+- First test of the tag-driven release flow end to end.
+
 ## 0.1.0-beta — 2026-07-16
 
 First public release. 🎉
