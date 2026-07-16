@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iTEQ — stay interconnected</title>
+  <meta name="description" content="iTEQ: self-hosted, end-to-end encrypted chat for friends and family. Open source, runs on your own hardware.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="app-icon-192.png">
+  <meta property="og:title" content="iTEQ — stay interconnected">
+  <meta property="og:description" content="Self-hosted, end-to-end encrypted chat for the people you trust. Open source under Apache-2.0.">
+  <meta name="theme-color" content="#060820">
+  <style>
+    :root {
+      --bg: #ffffff; --ink: #060820; --accent: #1160ef; --accent-hover: #0e54cf;
+      --surface: #f4f6fb; --border: rgba(6,8,32,.12); --muted: rgba(6,8,32,.55);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #060820; --ink: #ffffff; --surface: #0d1030;
+        --border: rgba(255,255,255,.14); --muted: rgba(255,255,255,.55);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+    .hero { text-align: center; padding: 9vh 24px 40px; }
+    .hero img { width: 110px; height: 110px; }
+    .hero h1 { font-size: 46px; margin: 14px 0 4px; letter-spacing: -.5px; }
+    .beta {
+      display: inline-block; vertical-align: middle; transform: translateY(-6px);
+      font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--accent); border: 1.5px solid var(--accent); border-radius: 6px;
+      padding: 1px 7px; margin-left: 8px;
+    }
+    .slogan { font-size: 25px; font-weight: 700; color: var(--accent); margin: 2px 0 12px; }
+    .tag { max-width: 640px; margin: 0 auto 28px; color: var(--muted); font-size: 18px; }
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-block; text-decoration: none; border-radius: 12px; padding: 12px 22px;
+      font-weight: 600; border: 1px solid var(--border); color: var(--ink); background: var(--surface);
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); color: #fff; border: none; }
+    .btn.primary:hover { background: var(--accent-hover); }
+
+    section { padding: 44px 0; }
+    h2 { font-size: 26px; margin: 0 0 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 16px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+    .why p { max-width: 760px; color: var(--muted); }
+    .why p b, .why p a { color: var(--ink); }
+    .why p a { text-decoration-color: var(--accent); }
+
+    .roadmap-item { display: flex; gap: 18px; padding: 13px 16px; border-left: 3px solid var(--border); margin-left: 6px; }
+    .roadmap-item.current { border-left-color: var(--accent); background: rgba(17,96,239,.06); border-radius: 0 12px 12px 0; }
+    .rv { font-weight: 800; min-width: 86px; white-space: nowrap; }
+    .roadmap-item.current .rv { color: var(--accent); }
+    .rd { color: var(--muted); font-size: 15px; }
+    .rd b { color: var(--ink); }
+
+    .honesty {
+      border: 1px dashed var(--border); border-radius: 14px; padding: 18px 20px;
+      color: var(--muted); font-size: 15px;
+    }
+    .honesty b { color: var(--ink); }
+
+    footer {
+      border-top: 1px solid var(--border); margin-top: 30px; padding: 26px 0 40px;
+      color: var(--muted); font-size: 14px; text-align: center;
+    }
+    footer a { color: var(--muted); }
+    @media (max-width: 640px) { .hero h1 { font-size: 34px; } .slogan { font-size: 20px; } }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <img src="logo.svg" alt="iTEQ logo">
+  <h1>iTEQ<span class="beta">beta</span></h1>
+  <p class="slogan">Stay interconnected.</p>
+  <p class="tag">
+    The <b>i</b> stands for <i>interconnected</i> — self-hosted, end-to-end encrypted chat
+    for the people you trust. Open source, running on <b>your</b> hardware, and nobody else's business.
+  </p>
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/TEQ-cloud/iteq">Start self-hosting</a>
+    <a class="btn" href="https://artifacthub.io/packages/helm/iteq/iteq">Helm chart ↗</a>
+    <a class="btn" href="https://github.com/TEQ-cloud/iteq#readme">Documentation</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <section>
+    <div class="grid">
+      <div class="card"><h3>🔒 End-to-end encrypted</h3><p>Messages, files and even chat names are encrypted in the browser before they leave the device. The server stores ciphertext — nothing else to leak, scan or subpoena.</p></div>
+      <div class="card"><h3>🏠 Yours, entirely</h3><p>Runs on your own containerized infrastructure: Kubernetes (Helm chart) or plain docker compose. No big-tech cloud, no ads, no AI scanning.</p></div>
+      <div class="card"><h3>🧹 Nothing is kept</h3><p>Chat content is deleted after 7 days at most. Per chat you choose RAM (gone on restart) or SSD storage. Minimal metadata by design.</p></div>
+      <div class="card"><h3>📱 Works everywhere</h3><p>Any modern browser on iOS, Android, PC or Mac — installable as an app via “Add to Home Screen”. No app store required.</p></div>
+    </div>
+  </section>
+
+  <section class="why">
+    <h2>Why it exists</h2>
+    <p>
+      In 2026 the EU's "Chat Control" law made it possible to compel messaging providers to scan
+      private communications — even genuinely end-to-end encrypted ones. Meanwhile the biggest
+      "free" platforms feed everything they can into AI training. iTEQ is the other way: a chat
+      server you run yourself, that <b>couldn't read your messages even if its operator wanted to</b>.
+    </p>
+    <p>
+      That matters to more people than homelabbers. Around <b>two billion people</b> live with
+      religious or personal modesty practices under which private photos must never rest on a
+      stranger's computer. And every parent should get to decide that
+      <b>their children are not AI training data</b>. iTEQ exists to self-host the data that's
+      precious to you — with privacy as the main objective, enforced by cryptography instead of
+      a privacy policy.
+    </p>
+    <p>
+      It's deliberately small: accounts need the operator's personal approval, there's no search
+      and no directory. Not a platform — <b>a room in your own house</b>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Roadmap</h2>
+    <div class="roadmap-item current">
+      <div class="rv">v0.1.0 <span style="font-size:11px">BETA</span></div>
+      <div class="rd"><b>Now live.</b> E2E-encrypted 1-on-1 chat · RAM or SSD storage per chat · 7-day retention · file transfer with image &amp; video previews · reply, forward, copy, delete · installable PWA · approval-gated accounts · in-tab notifications.</div>
+    </div>
+    <div class="roadmap-item">
+      <div class="rv">v0.2.0</div>
+      <div class="rd">Push notifications while the app is closed (incl. iOS home-screen app) · optional read receipts.</div>
+    </div>
+    <div class="roadmap-item">
+      <div class="rv">v0.3.0</div>
+      <div class="rd">Group chats.</div>
+    </div>
+    <div class="roadmap-item">
+      <div class="rv">v1.0.0</div>
+      <div class="rd">Stability polish, full documentation.</div>
+    </div>
+    <p style="color:var(--muted); font-size:13.5px; margin:10px 0 0 6px;">
+      Detailed changelogs live on <a href="https://github.com/TEQ-cloud/iteq/blob/main/CHANGELOG.md">GitHub</a>.
+    </p>
+  </section>
+
+  <section>
+    <div class="honesty">
+      <b>Honesty first:</b> iTEQ instances are private circles run on trust, not promises — every
+      user gets a plain-language disclaimer about exactly what the operator technically could and
+      couldn't do, before creating an account. That transparency is the product. This page is the
+      project's home; it is <b>not</b> a service you can sign up for. Want in? Ask a friend who
+      hosts one — or <a href="https://github.com/TEQ-cloud/iteq">become the friend who hosts one</a>.
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    iTEQ — made by <a href="https://teqcloud.net">TEQcloud</a> (Quinten de Haard) ·
+    <a href="https://github.com/TEQ-cloud/iteq/blob/main/LICENSE">Apache-2.0</a> ·
+    <a href="https://github.com/TEQ-cloud/iteq">GitHub</a> ·
+    <a href="https://artifacthub.io/packages/helm/iteq/iteq">Artifact Hub</a>
+  </div>
+</footer>
+
+</body>
+</html>

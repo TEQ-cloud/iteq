@@ -87,7 +87,8 @@ function Pending({ username, onLogout, onApproved }) {
   );
 }
 
-// Public source & self-hosting guide (repo goes public during the beta).
+// Project homepage (roadmap, docs, self-hosting) and source repo.
+const PROJECT_URL = 'https://i.teqcloud.net';
 const REPO_URL = 'https://github.com/TEQ-cloud/iteq';
 
 function Landing({ onLogin, onCreate }) {
@@ -104,12 +105,13 @@ function Landing({ onLogin, onCreate }) {
         <div className="hero-actions">
           <button className="btn-primary" onClick={onLogin}>Log in</button>
           <button className="btn" onClick={onCreate}>Create account</button>
-          <a className="btn" href={REPO_URL} target="_blank" rel="noreferrer">Host yourself ↗</a>
+          <a className="btn" href={PROJECT_URL} target="_blank" rel="noreferrer">Host yourself ↗</a>
         </div>
         <p className="instance-note">
-          This is the <b>TEQcloud</b> instance — a private circle for Quinten's friends and family,
-          where every new account needs his personal approval. It's not a public demo: if you're not
-          in that circle, grab the source and <a href={REPO_URL} target="_blank" rel="noreferrer">host your own</a>.
+          This is a <b>private, invitation-only instance</b> — every new account needs the
+          operator's personal approval. It's not a public demo: if you don't know the person
+          running it, visit the <a href={PROJECT_URL} target="_blank" rel="noreferrer">iTEQ project page</a> and
+          host your own.
         </p>
       </div>
       <div className="landing-features">

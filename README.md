@@ -66,7 +66,8 @@ web/             React PWA (builds the web/nginx image)
 k8s/             raw manifests (kustomize) — the author's homelab, as a worked example
 charts/iteq/     Helm chart (same manifests, parameterised via values.yaml)
 deploy/compose/  docker-compose + Caddy (auto-HTTPS) for non-k8s hosting
-examples/        real-world extras: CNPG cluster, Argo ApplicationSet, ...
+examples/        real-world extras: CNPG cluster, Argo ApplicationSet, demo configs
+site/            the static project page (i.teqcloud.net) — roadmap, links, no service
 ```
 
 One repo on purpose: source, chart and deploy examples version together, so a

@@ -14,10 +14,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - i.teqcloud.net
+        - chat.teqcloud.net
       secretName: iteq-tls
   rules:
-    - host: i.teqcloud.net
+    - host: chat.teqcloud.net
       http:
         paths:
           - path: /api
