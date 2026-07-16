@@ -17,6 +17,29 @@ not a promise, as the onboarding disclaimer spells out. (Note: a disclaimer cann
 waive statutory law; staying closed and non-commercial is what keeps this out of
 "service offered to the public" territory. Not legal advice.)
 
+## Why iTEQ exists
+
+In July 2026 the EU pushed through the "Chat Control" law: messaging providers
+can be compelled to scan private communications — including on platforms whose
+end-to-end encryption used to mean *nobody can read this*, like Signal,
+WhatsApp and iMessage. Add big-tech clouds feeding everything into AI
+pipelines, and the only way left to *know* where your conversations go is to
+run the server yourself.
+
+There's also a quieter, more personal kind of reason. Some people in our lives
+follow modesty practices — religious or personal — that make it unacceptable
+for private photos to pass through or rest on computers owned by strangers, no
+matter what a privacy policy promises. iTEQ's answer is technical, not
+contractual: every message, file and chat name is encrypted **in the browser,
+before it leaves the device**. The server — even ours, even its operator —
+only ever relays and stores ciphertext. What's private stays private, on
+hardware we own.
+
+That's also why iTEQ is deliberately small and closed: approval-gated
+accounts, no search, no directory, minimal metadata, everything deleted within
+7 days. It's not trying to be a platform. It's trying to be a room in your own
+house.
+
 ## Repo layout
 
 ```
