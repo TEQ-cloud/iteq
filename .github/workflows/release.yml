@@ -1,17 +1,18 @@
 # Release pipeline: push a tag like v0.1.0-beta and this
 #   1. builds + pushes ghcr.io/teq-cloud/iteq-api and iteq-web (tag + latest)
-#   2. packages charts/iteq and publishes it to the gh-pages Helm repo
-#      (https://teq-cloud.github.io/iteq — the URL you register on Artifact Hub)
-#   3. creates the human GitHub Release for the v* tag, notes from CHANGELOG.md
+#   2. packages charts/iteq and commits the .tgz + regenerated index.yaml to the
+#      gh-pages branch — the Helm repo is hosted entirely on GitHub Pages
+#      (https://teq-cloud.github.io/iteq — the URL registered on Artifact Hub)
+#   3. creates ONE GitHub Release, on the v* tag, notes from CHANGELOG.md
 #
-# Two tag series exist, on purpose:
-#   - v0.1.2-beta  → the release humans read (this workflow makes it, marked Latest)
-#   - iteq-0.1.2   → chart-releaser's artifact host for the .tgz (NOT marked Latest;
-#                    required by the Helm repo — don't delete it)
+# Only the v* tag series exists. Charts are plain files on gh-pages, so nothing
+# depends on per-version releases (that was the old chart-releaser model, which
+# created iteq-* releases whose deletion 404'd the whole repo).
 #
 # One-time setup:
 #   - create an empty gh-pages branch:
 #       git switch --orphan gh-pages && git commit --allow-empty -m "helm repo" && git push origin gh-pages
+#   - Settings → Pages → Deploy from branch: gh-pages / root
 #   - after the first push, set both GHCR packages to PUBLIC:
 #       github.com/orgs/TEQ-cloud/packages → iteq-api / iteq-web → settings → visibility
 #   - keep Chart.yaml version/appVersion + a CHANGELOG.md section in step with the tag
@@ -62,25 +63,32 @@ jobs:
   chart:
     needs: images
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # push to gh-pages
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Configure git
+      - uses: azure/setup-helm@v4
+      - name: Package chart and publish to gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          helm package charts/iteq -d /tmp/pkg
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-      - name: Publish chart to gh-pages
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          charts_dir: charts
-          skip_existing: true # re-tagging a version must not fail on the chart
-          mark_as_latest: false # the iteq-* release is an artifact host, not "Latest"
-        env:
-          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git fetch origin gh-pages
+          git worktree add gh-pages origin/gh-pages
+          cp /tmp/pkg/*.tgz gh-pages/
+          # Regenerate the index from ALL .tgz present, pointed at the Pages URL.
+          # Idempotent: re-running a tag just rewrites the same entry.
+          rm -f gh-pages/index.yaml
+          helm repo index gh-pages --url https://teq-cloud.github.io/iteq
+          cd gh-pages
+          git add -A
+          git commit -m "Publish chart for ${GITHUB_REF_NAME}" || { echo "no chart change"; exit 0; }
+          git push origin HEAD:gh-pages
 
-  # The release humans actually read. Runs last so it wins the "Latest" badge
-  # over chart-releaser's iteq-* artifact release; notes come from CHANGELOG.md.
+  # The one GitHub Release, on the v* tag, notes pulled from CHANGELOG.md.
   release:
     needs: [images, chart]
     runs-on: ubuntu-latest
