@@ -4,6 +4,25 @@ entries:
   - annotations:
       artifacthub.io/license: Apache-2.0
     apiVersion: v2
+    appVersion: 0.1.2-beta
+    created: "2026-07-17T06:43:53.983226884Z"
+    description: 'iTEQ — stay interconnected. Self-hosted, end-to-end encrypted chat
+      for friends and family. Closed by design: every account needs operator approval.'
+    digest: 69f20badb08452cad609e206ce063fb0d2303ebbf47b6f0b41b19105d491fe33
+    home: https://i.teqcloud.net/
+    icon: https://raw.githubusercontent.com/TEQ-cloud/iteq/main/app-icon-512.png
+    maintainers:
+    - name: TEQcloud (Quinten de Haard)
+    name: iteq
+    sources:
+    - https://github.com/TEQ-cloud/iteq
+    type: application
+    urls:
+    - https://github.com/TEQ-cloud/iteq/releases/download/iteq-0.1.2/iteq-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      artifacthub.io/license: Apache-2.0
+    apiVersion: v2
     appVersion: 0.1.1-beta
     created: "2026-07-16T13:28:08.187525504Z"
     description: 'iTEQ — stay interconnected. Self-hosted, end-to-end encrypted chat
@@ -39,4 +58,4 @@ entries:
     urls:
     - https://github.com/TEQ-cloud/iteq/releases/download/iteq-0.1.0/iteq-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-16T13:28:08.187535954Z"
+generated: "2026-07-17T06:43:53.983239116Z"
