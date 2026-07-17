@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.2-beta — 2026-07-16
+
+iOS fixes:
+
+- Installed-app (standalone) mode: header, sidebar footer and composer now
+  respect the safe areas — no more content behind the Dynamic Island, status
+  bar, home indicator or screen corner radius.
+- No more stuck zoom: inputs are ≥16px on phones (Safari auto-zoomed on focus
+  and left ~10% of the page off-screen), pinch/double-tap zoom disabled,
+  horizontal panning clamped. Header and footer stay fixed; only the message
+  window scrolls.
+- The in-app tour now ships the real iOS "Add to Home Screen" screenshot.
+
+Known notice (no chart change): on a first install, api pods may restart a few
+times while the CNPG database initializes — normal Kubernetes startup order,
+settles by itself within a few minutes.
+
 ## 0.1.1-beta — 2026-07-16
 
 - Landing page is now operator-neutral: instances no longer hardcode the

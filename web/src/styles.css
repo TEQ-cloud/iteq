@@ -27,11 +27,14 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--ink);
   font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;          /* the page never pans sideways */
+  touch-action: manipulation;  /* no double-tap zoom on iOS */
 }
 button { font: inherit; cursor: pointer; }
 input, textarea { font: inherit; color: inherit; }
@@ -86,7 +89,13 @@ a { color: var(--accent); }
 .pending-row .pmeta span { display: block; font-size: 12px; color: var(--muted); }
 
 /* ---------- landing ---------- */
-.landing { min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 24px; }
+/* Safe areas: with viewport-fit=cover, installed-app (standalone) mode renders
+   edge-to-edge on iOS — pad the shell edges clear of the Dynamic Island, home
+   indicator and screen corner radii. env() is 0 everywhere else. */
+.landing {
+  min-height: 100%; display: flex; flex-direction: column; align-items: center;
+  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+}
 .landing-hero { text-align: center; margin-top: 9vh; max-width: 640px; }
 .landing-hero img { width: 108px; height: 108px; }
 .landing-hero h1 { font-size: 44px; margin: 14px 0 6px; letter-spacing: -0.5px; }
@@ -135,7 +144,10 @@ a { color: var(--accent); }
 .preview-loading { font-size: 12.5px; opacity: 0.75; margin-bottom: 6px; }
 
 /* ---------- gate / auth ---------- */
-.center-wrap { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.center-wrap {
+  min-height: 100%; display: flex; align-items: center; justify-content: center;
+  padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
+}
 .card {
   background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
   padding: 28px; max-width: 480px; width: 100%; box-shadow: var(--shadow);
@@ -176,7 +188,7 @@ a { color: var(--accent); }
   width: 320px; min-width: 320px; border-right: 1px solid var(--border);
   display: flex; flex-direction: column; background: var(--surface);
 }
-.side-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+.side-head { display: flex; align-items: center; gap: 10px; padding: calc(14px + env(safe-area-inset-top)) 16px 14px; }
 .side-head img { width: 30px; height: 30px; }
 .side-head b { font-size: 17px; flex: 1; }
 .conn-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); }
@@ -194,7 +206,9 @@ a { color: var(--accent); }
 .chat-item-name time { font-weight: 400; font-size: 12px; opacity: 0.7; }
 .chat-item-sub { font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
 .side-foot {
-  border-top: 1px solid var(--border); padding: 12px 16px;
+  /* extra bottom room so the text clears the home indicator + corner radius */
+  border-top: 1px solid var(--border);
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
   display: flex; align-items: center; gap: 8px; font-size: 13.5px;
 }
 .side-foot .me { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -212,7 +226,8 @@ a { color: var(--accent); }
 /* ---------- chat pane ---------- */
 .chatpane { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
 .chat-head {
-  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   border-bottom: 1px solid var(--border); min-height: 58px;
 }
 .chat-head .titles { flex: 1; min-width: 0; }
@@ -334,6 +349,9 @@ a { color: var(--accent); }
 
 /* ---------- mobile ---------- */
 @media (max-width: 760px) {
+  /* iOS auto-zooms (and stays zoomed) on focused inputs below 16px — the
+     "page suddenly needs horizontal swiping" bug. Keep every input at 16px. */
+  input, textarea, select { font-size: 16px; }
   .sidebar { width: 100%; min-width: 0; }
   .app.viewing-chat .sidebar { display: none; }
   .app:not(.viewing-chat) .chatpane { display: none; }

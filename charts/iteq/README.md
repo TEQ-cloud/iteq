@@ -48,6 +48,11 @@ Then open your host, sign up with the admin username + the setup code (asked
 automatically) — that account is auto-approved and approves everyone else from
 the in-app 👥 panel.
 
+> **First boot:** the api pods start before the CNPG database is ready and may
+> restart a few times (`CrashLoopBackOff`) during the first minutes — with
+> Argo CD the app can briefly show *Degraded* for the same reason. This is
+> normal Kubernetes startup ordering; it settles by itself once Postgres is up.
+
 ## Any edge you like
 
 The web service is a **complete entrypoint**: its nginx serves the app and
