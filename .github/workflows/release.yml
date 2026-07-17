@@ -73,16 +73,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          helm package charts/iteq -d /tmp/pkg
+          helm package charts/iteq -d /tmp/pkg   # only the current chart version
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
           git fetch origin gh-pages
           git worktree add gh-pages origin/gh-pages
+          # Incremental index: scan ONLY the new package and merge the existing
+          # index, so every older version keeps its original 'created' timestamp
+          # (a full re-index would reset them all to now). The old .tgz stay
+          # committed on the branch so Pages keeps serving them.
+          MERGE=""; [ -f gh-pages/index.yaml ] && MERGE="--merge gh-pages/index.yaml"
+          helm repo index /tmp/pkg --url https://teq-cloud.github.io/iteq $MERGE
           cp /tmp/pkg/*.tgz gh-pages/
-          # Regenerate the index from ALL .tgz present, pointed at the Pages URL.
-          # Idempotent: re-running a tag just rewrites the same entry.
-          rm -f gh-pages/index.yaml
-          helm repo index gh-pages --url https://teq-cloud.github.io/iteq
+          cp /tmp/pkg/index.yaml gh-pages/index.yaml
           cd gh-pages
           git add -A
           git commit -m "Publish chart for ${GITHUB_REF_NAME}" || { echo "no chart change"; exit 0; }
