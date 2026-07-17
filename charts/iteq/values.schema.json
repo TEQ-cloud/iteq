@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "iTEQ Helm values",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "description": "Defaults to the chart appVersion when empty." }
+          }
+        },
+        "web": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string" }
+          }
+        },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "adminUsers": {
+      "type": "string",
+      "description": "Comma-separated usernames auto-approved at signup and able to approve others."
+    },
+    "adminSetupCode": {
+      "type": "string",
+      "description": "Code required to claim an admin username at signup. Empty = no code required (unsafe on public deployments)."
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "host": { "type": "string", "minLength": 1 },
+        "tlsSecretName": { "type": "string" },
+        "certManagerClusterIssuer": { "type": "string" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "size": { "type": "string", "minLength": 1 },
+        "className": { "type": "string", "description": "An RWX-capable StorageClass (NFS, CephFS, Longhorn-RWX, ...)." }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cnpg": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "instances": { "type": "integer", "minimum": 1 },
+            "size": { "type": "string", "minLength": 1 },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "existingUriSecret": { "type": "string", "description": "Required when cnpg.enabled is false." },
+        "uriSecretKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxmemory": { "type": "string", "minLength": 1 },
+        "memoryLimit": { "type": "string", "minLength": 1 },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "api": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "resources": { "$ref": "#/$defs/resources" },
+        "hpa": { "$ref": "#/$defs/hpa" }
+      }
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "resources": { "$ref": "#/$defs/resources" },
+        "hpa": { "$ref": "#/$defs/hpa" },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "loadBalancerClass": { "type": "string" },
+            "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contentDays": { "type": "integer", "minimum": 1, "description": "Chat content lifetime, both storage modes." },
+        "bigFileDays": { "type": "integer", "minimum": 1, "description": "Lifetime for files over the big-file threshold." },
+        "accountDays": { "type": "integer", "minimum": 1, "description": "Unused accounts are deleted after this many days." }
+      }
+    },
+    "retentionCronJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schedule": { "type": "string", "minLength": 1, "description": "Cron expression for the daily PVC sweep." }
+      }
+    }
+  },
+  "$defs": {
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": { "type": "object" },
+        "limits": { "type": "object" }
+      }
+    },
+    "hpa": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPU": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    }
+  }
+}
