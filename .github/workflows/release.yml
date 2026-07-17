@@ -2,13 +2,19 @@
 #   1. builds + pushes ghcr.io/teq-cloud/iteq-api and iteq-web (tag + latest)
 #   2. packages charts/iteq and publishes it to the gh-pages Helm repo
 #      (https://teq-cloud.github.io/iteq — the URL you register on Artifact Hub)
+#   3. creates the human GitHub Release for the v* tag, notes from CHANGELOG.md
+#
+# Two tag series exist, on purpose:
+#   - v0.1.2-beta  → the release humans read (this workflow makes it, marked Latest)
+#   - iteq-0.1.2   → chart-releaser's artifact host for the .tgz (NOT marked Latest;
+#                    required by the Helm repo — don't delete it)
 #
 # One-time setup:
 #   - create an empty gh-pages branch:
 #       git switch --orphan gh-pages && git commit --allow-empty -m "helm repo" && git push origin gh-pages
 #   - after the first push, set both GHCR packages to PUBLIC:
 #       github.com/orgs/TEQ-cloud/packages → iteq-api / iteq-web → settings → visibility
-#   - keep Chart.yaml version/appVersion in step with the tag you push
+#   - keep Chart.yaml version/appVersion + a CHANGELOG.md section in step with the tag
 name: release
 
 on:
@@ -69,5 +75,34 @@ jobs:
         with:
           charts_dir: charts
           skip_existing: true # re-tagging a version must not fail on the chart
+          mark_as_latest: false # the iteq-* release is an artifact host, not "Latest"
         env:
           CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The release humans actually read. Runs last so it wins the "Latest" badge
+  # over chart-releaser's iteq-* artifact release; notes come from CHANGELOG.md.
+  release:
+    needs: [images, chart]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release notes from CHANGELOG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## " v "([ ]|$)" {flag=1; next}
+            /^## / && flag {flag=0}
+            flag {print}
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Release $GITHUB_REF_NAME" > notes.md
+      - name: Create or update the v* release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest --verify-tag
+          fi
