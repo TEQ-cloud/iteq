@@ -128,6 +128,18 @@ function Landing({ onLogin, onCreate }) {
       </div>
       <div className="roadmap">
         <h2>Roadmap</h2>
+        <div className="roadmap-item">
+          <div className="rv">v1.0.0</div>
+          <div className="rd">Stability polish, full documentation at docs.teqcloud.net.</div>
+        </div>
+        <div className="roadmap-item">
+          <div className="rv">v0.4.0</div>
+          <div className="rd">Group chats.</div>
+        </div>
+        <div className="roadmap-item">
+          <div className="rv">v0.3.0</div>
+          <div className="rd">Optional read receipts.</div>
+        </div>
         <div className="roadmap-item current">
           <div className="rv">v0.2.0 <span className="beta-chip">beta</span></div>
           <div className="rd">
@@ -144,18 +156,6 @@ function Landing({ onLogin, onCreate }) {
             installable PWA · approval-gated accounts · public release: Docker images,
             Helm chart &amp; compose example.
           </div>
-        </div>
-        <div className="roadmap-item">
-          <div className="rv">v0.3.0</div>
-          <div className="rd">Optional read receipts.</div>
-        </div>
-        <div className="roadmap-item">
-          <div className="rv">v0.4.0</div>
-          <div className="rd">Group chats.</div>
-        </div>
-        <div className="roadmap-item">
-          <div className="rv">v1.0.0</div>
-          <div className="rd">Stability polish, full documentation at docs.teqcloud.net.</div>
         </div>
         <p className="roadmap-note">Detailed changelogs and bugfixes live on <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>.</p>
       </div>
