@@ -108,6 +108,27 @@ export const pstore = {
     await fsp.rm(path.join(fileDir(chatId), `${fileId}.meta.json`), { force: true });
   },
 
+  // Read receipts: one ciphertext blob per member, always overwritten — the
+  // server never learns which message was read, only that a receipt exists.
+  async setReceipt(chatId, userId, receipt) {
+    const dir = path.join(chatDir(chatId), 'rcpt');
+    await ensure(dir);
+    await fsp.writeFile(path.join(dir, `${userId}.json`), JSON.stringify(receipt));
+  },
+
+  async getReceipts(chatId) {
+    const dir = path.join(chatDir(chatId), 'rcpt');
+    let names = [];
+    try { names = await fsp.readdir(dir); } catch { return []; }
+    const out = [];
+    for (const n of names) {
+      try {
+        out.push(JSON.parse(await fsp.readFile(path.join(dir, n), 'utf8')));
+      } catch { /* concurrently swept */ }
+    }
+    return out;
+  },
+
   // Remove a whole chat's directory (used when inactive accounts are purged).
   async delChat(chatId) {
     await fsp.rm(chatDir(chatId), { recursive: true, force: true });
@@ -133,6 +154,16 @@ export const pstore = {
           } catch { /* ignore */ }
           await fsp.rm(path.join(msgDir(chatId), n), { force: true });
         }
+      }
+      // stale receipts (no reads for the whole retention window)
+      const rcptDir = path.join(chatDir(chatId), 'rcpt');
+      let rcpts = [];
+      try { rcpts = await fsp.readdir(rcptDir); } catch { /* none */ }
+      for (const n of rcpts) {
+        try {
+          const st = await fsp.stat(path.join(rcptDir, n));
+          if (nowTs - st.mtimeMs > config.retentionMs) await fsp.rm(path.join(rcptDir, n), { force: true });
+        } catch { /* ignore */ }
       }
       let metas = [];
       try { metas = (await fsp.readdir(fileDir(chatId))).filter((f) => f.endsWith('.meta.json')); } catch { /* none */ }

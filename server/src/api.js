@@ -187,12 +187,16 @@ export function createApi(store, bus) {
         list: () => store.npListMsgs(chat.id),
         del: (id) => store.npDelMsg(chat.id, id),
         get: (id) => store.npGetMsg(chat.id, id),
+        setReceipt: (uid, r) => store.npSetReceipt(chat.id, uid, r),
+        getReceipts: () => store.npGetReceipts(chat.id),
       }
     : {
         add: (m) => pstore.addMsg(chat.id, m),
         list: () => pstore.listMsgs(chat.id),
         del: (id) => pstore.delMsg(chat.id, id),
         get: (id) => pstore.getMsg(chat.id, id),
+        setReceipt: (uid, r) => pstore.setReceipt(chat.id, uid, r),
+        getReceipts: () => pstore.getReceipts(chat.id),
       });
 
   api.get('/chats/:chatId/messages', requireAuth, requireActive, requireMember, async (req, res) => {
@@ -228,6 +232,25 @@ export function createApi(store, bus) {
       type: 'message', chatId: req.chat.id,
     }).catch((e) => console.error('push:', e.message));
     res.json({ message: msg });
+  });
+
+  // ---------- read receipts ----------
+  // The payload is ciphertext: the server relays and stores it without ever
+  // learning which message was read. Receipts deliberately do NOT trigger
+  // push notifications and do NOT touch the chat's activity timestamp — the
+  // only new thing the server sees is timing it already saw when the reader's
+  // client fetched the messages.
+  api.post('/chats/:chatId/receipt', requireAuth, requireActive, requireMember, async (req, res) => {
+    const { payload } = req.body || {};
+    if (!isEncBlob(payload) || payload.ct.length > 4096) return res.status(400).json({ error: 'bad-payload' });
+    const receipt = { userId: req.userId, payload, ts: now() };
+    await dataFor(req.chat).setReceipt(req.userId, receipt);
+    await bus.publish({ type: 'receipt', chatId: req.chat.id, receipt, recipients: req.chat.memberIds });
+    res.json({ ok: true });
+  });
+
+  api.get('/chats/:chatId/receipts', requireAuth, requireActive, requireMember, async (req, res) => {
+    res.json({ receipts: await dataFor(req.chat).getReceipts() });
   });
 
   api.delete('/chats/:chatId/messages/:msgId', requireAuth, requireActive, requireMember, async (req, res) => {

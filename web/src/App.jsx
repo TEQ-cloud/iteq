@@ -136,16 +136,18 @@ function Landing({ onLogin, onCreate }) {
           <div className="rv">v0.4.0</div>
           <div className="rd">Group chats.</div>
         </div>
-        <div className="roadmap-item">
-          <div className="rv">v0.3.0</div>
-          <div className="rd">Optional read receipts.</div>
-        </div>
         <div className="roadmap-item current">
-          <div className="rv">v0.2.0 <span className="beta-chip">beta</span></div>
+          <div className="rv">v0.3.0 <span style={{ fontSize: 11 }}>BETA</span></div>
           <div className="rd">
-            <b>Now live.</b> Push notifications while the app is closed (including the iOS
-            home-screen app) — with no message content in the payload, because the server
-            can't read it.
+            <b>Now live.</b> Optional read receipts — end-to-end encrypted like everything
+            else, with an off-switch that works both ways.
+          </div>
+        </div>
+        <div className="roadmap-item done">
+          <div className="rv">v0.2.0</div>
+          <div className="rd">
+            Push notifications while the app is closed (including the iOS home-screen app) —
+            with no message content in the payload, because the server can't read it.
           </div>
         </div>
         <div className="roadmap-item done">

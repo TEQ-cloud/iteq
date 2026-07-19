@@ -12,6 +12,7 @@ export function createMemoryStore() {
   const npMsgs = new Map();         // chatId -> Map<msgId, msg>
   const npFiles = new Map();        // fileId -> {meta, chunks: Buffer[]}
   const pushSubs = new Map();       // endpoint -> {userId, sub}
+  const npReceipts = new Map();     // chatId -> Map<userId, receipt>  (RAM chats)
   const bus = new EventEmitter();
   bus.setMaxListeners(0);
 
@@ -175,6 +176,13 @@ export function createMemoryStore() {
     async npDelFile(chatId, fileId) {
       npFiles.delete(fileId);
     },
+    async npSetReceipt(chatId, userId, receipt) {
+      if (!npReceipts.has(chatId)) npReceipts.set(chatId, new Map());
+      npReceipts.get(chatId).set(userId, receipt);
+    },
+    async npGetReceipts(chatId) {
+      return [...(npReceipts.get(chatId)?.values() || [])];
+    },
     async npUsage(chatId) {
       let total = 0;
       for (const f of npFiles.values()) {
@@ -202,6 +210,7 @@ export function createMemoryStore() {
           if (!c.members.has(u.id)) continue;
           chats.delete(c.id);
           npMsgs.delete(c.id);
+          npReceipts.delete(c.id);
           for (const [fileId, f] of npFiles) if (f.meta.chatId === c.id) npFiles.delete(fileId);
           removedChats.push(c.id);
         }
@@ -224,6 +233,10 @@ export function createMemoryStore() {
       for (const [fileId, f] of npFiles) {
         if (f.meta.retainUntil && nowTs > f.meta.retainUntil) npFiles.delete(fileId);
         else if (!f.meta.complete && nowTs - f.meta.createdAt > 24 * 3600 * 1000) npFiles.delete(fileId);
+      }
+      for (const [chatId, m] of npReceipts) {
+        for (const [uid, r] of m) if (nowTs - r.ts > config.retentionMs) m.delete(uid);
+        if (m.size === 0) npReceipts.delete(chatId);
       }
     },
   };

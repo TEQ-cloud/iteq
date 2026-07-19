@@ -17,7 +17,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: prune
-              image: ghcr.io/teq-cloud/iteq-api:0.2.0-beta # same image as the api
+              image: ghcr.io/teq-cloud/iteq-api:0.3.0-beta # same image as the api
               command: ["node", "src/prune.js"]
               env:
                 - name: DATA_DIR

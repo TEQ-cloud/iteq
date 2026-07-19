@@ -3,7 +3,7 @@ import { api } from '../lib/api.js';
 import { connectWs } from '../lib/ws.js';
 import { generateChatKey, wrapChatKey, unwrapChatKey, encryptJson, decryptJson } from '../lib/crypto.js';
 import { ChatView } from './ChatView.jsx';
-import { NewChatModal, TourModal, AdminModal, InfoModal } from './Modals.jsx';
+import { NewChatModal, TourModal, AdminModal, InfoModal, SettingsModal } from './Modals.jsx';
 import { showLocal, enableNotifications, permission, notificationsSupported, isIOS, isStandalone } from '../lib/push.js';
 
 export function ChatApp({ ident, onLogout }) {
@@ -18,6 +18,11 @@ export function ChatApp({ ident, onLogout }) {
   const [pending, setPending] = useState([]);
   const [notifPerm, setNotifPerm] = useState(permission());
   const [notifInfo, setNotifInfo] = useState(null); // explains iOS/denied cases
+  const [showSettings, setShowSettings] = useState(false);
+  // Read receipts: "optional" means a real switch. Off = don't send AND don't
+  // show (the WhatsApp deal: no receipts for you either).
+  const [receiptsOn, setReceiptsOn] = useState(() => localStorage.getItem('iteq.receipts') !== '0');
+  const [receiptsByChat, setReceiptsByChat] = useState({}); // chatId -> { userId: { upToTs } }
   const keysRef = useRef(new Map()); // chatId -> CryptoKey
   const chatsRef = useRef([]);
   const activeIdRef = useRef(null);
@@ -82,6 +87,17 @@ export function ChatApp({ ident, onLogout }) {
     return () => navigator.serviceWorker.removeEventListener('message', onMsg);
   }, []);
 
+  // Decrypt a receipt blob and record the reader's high-water mark.
+  const applyReceipt = useCallback(async (chatId, receipt, key) => {
+    try {
+      const dec = await decryptJson(key, receipt.payload); // { upToTs }
+      setReceiptsByChat((prev) => ({
+        ...prev,
+        [chatId]: { ...prev[chatId], [receipt.userId]: { upToTs: dec.upToTs } },
+      }));
+    } catch { /* undecryptable receipt — ignore */ }
+  }, []);
+
   const loadPending = useCallback(async () => {
     if (!ident.user.admin) return;
     try { setPending((await api.adminPending()).pending); } catch { /* not fatal */ }
@@ -114,10 +130,15 @@ export function ChatApp({ ident, onLogout }) {
           if (!list) return prev;
           return { ...prev, [event.chatId]: list.filter((m) => m.id !== event.msgId) };
         });
+      } else if (event.type === 'receipt') {
+        const chat = chatsRef.current.find((c) => c.id === event.chatId);
+        const key = chat ? await keyFor(chat) : null;
+        if (!key) return;
+        applyReceipt(event.chatId, event.receipt, key);
       }
     }, setWsOn);
     return stop;
-  }, [keyFor, decorateMsg, loadChats, maybeNotify]);
+  }, [keyFor, decorateMsg, loadChats, maybeNotify, applyReceipt]);
 
   // --- actions ---
   const openChat = async (chat) => {
@@ -126,8 +147,23 @@ export function ChatApp({ ident, onLogout }) {
     const { messages } = await api.messages(chat.id);
     const decorated = await Promise.all(messages.map((m) => decorateMsg(m, key)));
     setMsgsByChat((prev) => ({ ...prev, [chat.id]: decorated }));
+    try {
+      const { receipts } = await api.receipts(chat.id);
+      for (const r of receipts) await applyReceipt(chat.id, r, key);
+    } catch { /* receipts are cosmetic — never block a chat */ }
   };
   openChatRef.current = openChat;
+
+  // Tell the other side how far we've read — E2E encrypted, so the server
+  // relays a blob it can't interpret. Only when the user has receipts on.
+  const sendReceipt = async (chat, upToTs) => {
+    if (!receiptsOn) return;
+    try {
+      const key = await keyFor(chat);
+      const payload = await encryptJson(key, { upToTs });
+      await api.sendReceipt(chat.id, payload);
+    } catch { /* cosmetic */ }
+  };
 
   const createChat = async (peerUsername, storage) => {
     const peer = await api.lookupUser(peerUsername);
@@ -221,6 +257,7 @@ export function ChatApp({ ident, onLogout }) {
               }
             }}>🔔</button>
           )}
+          <button className="btn-ghost" title="Settings" onClick={() => setShowSettings(true)}>⚙</button>
           <button className="btn-ghost" title="How iTEQ works" onClick={() => setShowTour(true)}>？</button>
           <span className={`conn-dot ${wsOn ? 'on' : ''}`} title={wsOn ? 'Connected' : 'Reconnecting…'} />
         </div>
@@ -267,6 +304,9 @@ export function ChatApp({ ident, onLogout }) {
           onForward={forwardMessage}
           onRename={(name) => renameChat(active, name)}
           chatKeyFor={keyFor}
+          receiptsOn={receiptsOn}
+          peerReadTs={receiptsOn ? (receiptsByChat[active.id]?.[active.peer?.id]?.upToTs || 0) : 0}
+          onReadUpTo={(upToTs) => sendReceipt(active, upToTs)}
         />
       ) : (
         <main className="chatpane">
@@ -284,6 +324,13 @@ export function ChatApp({ ident, onLogout }) {
       )}
       {showNew && <NewChatModal onCreate={createChat} onClose={() => setShowNew(false)} />}
       {showTour && <TourModal onClose={() => { localStorage.setItem('iteq.tourDone', '1'); setShowTour(false); }} />}
+      {showSettings && (
+        <SettingsModal receiptsOn={receiptsOn} onClose={() => setShowSettings(false)}
+          onToggleReceipts={(on) => {
+            localStorage.setItem('iteq.receipts', on ? '1' : '0');
+            setReceiptsOn(on);
+          }} />
+      )}
       {showAdmin && (
         <AdminModal pending={pending} onRefresh={loadPending} onClose={() => setShowAdmin(false)}
           onApprove={async (u) => { await api.adminApprove(u.id); loadPending(); }}

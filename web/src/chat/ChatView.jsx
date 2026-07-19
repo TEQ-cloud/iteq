@@ -57,7 +57,7 @@ function FilePreview({ chat, msg, chatKeyFor }) {
   return <video className="preview-media" src={url} controls playsInline />;
 }
 
-export function ChatView({ chat, messages, me, allChats, onBack, onSend, onDelete, onForward, onRename, chatKeyFor }) {
+export function ChatView({ chat, messages, me, allChats, onBack, onSend, onDelete, onForward, onRename, chatKeyFor, receiptsOn, peerReadTs, onReadUpTo }) {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);   // decorated msg
   const [menuFor, setMenuFor] = useState(null);   // msgId with open menu
@@ -71,6 +71,27 @@ export function ChatView({ chat, messages, me, allChats, onBack, onSend, onDelet
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, uploads]);
+
+  // Report how far we've read: the newest peer message visible in this open,
+  // visible chat. Debounced; re-checked when the tab becomes visible again.
+  const lastReadSentRef = useRef(0);
+  useEffect(() => {
+    if (!receiptsOn) return;
+    const report = () => {
+      if (document.hidden) return;
+      const latestPeer = [...messages].reverse().find((m) => m.senderId !== me.id);
+      if (latestPeer && latestPeer.ts > lastReadSentRef.current) {
+        lastReadSentRef.current = latestPeer.ts;
+        onReadUpTo?.(latestPeer.ts);
+      }
+    };
+    const t = setTimeout(report, 600);
+    document.addEventListener('visibilitychange', report);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('visibilitychange', report);
+    };
+  }, [messages, receiptsOn, me.id, onReadUpTo]);
 
   const byId = Object.fromEntries(messages.map((m) => [m.id, m]));
 
@@ -221,6 +242,11 @@ export function ChatView({ chat, messages, me, allChats, onBack, onSend, onDelet
                   )}
                   <div className="msg-time" title={new Date(m.ts).toLocaleString()}>
                     {new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {mine && receiptsOn && (
+                      peerReadTs >= m.ts
+                        ? <span className="ticks read" title="Read">✓✓</span>
+                        : <span className="ticks" title="On the server">✓</span>
+                    )}
                   </div>
                 </div>
                 <button className={`msg-menu-btn ${menuFor === m.id ? 'open' : ''}`} aria-label="Message actions"

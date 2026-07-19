@@ -192,6 +192,29 @@ export function TourModal({ onClose }) {
   );
 }
 
+export function SettingsModal({ receiptsOn, onToggleReceipts, onClose }) {
+  return (
+    <Modal onClose={onClose}>
+      <h3>Settings</h3>
+      <label className="check-row" style={{ cursor: 'pointer' }}>
+        <input type="checkbox" checked={receiptsOn} onChange={(e) => onToggleReceipts(e.target.checked)} />
+        <span>
+          <b>Read receipts</b> — show others when you've read their messages, and see
+          when they've read yours. Turning this off does both: you stop sending
+          receipts <i>and</i> stop seeing them.
+        </span>
+      </label>
+      <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+        Receipts are end-to-end encrypted like everything else: the server relays a
+        blob it can't read, so it never learns which message you've seen.
+      </p>
+      <div className="modal-actions">
+        <button className="btn-primary" onClick={onClose}>Done</button>
+      </div>
+    </Modal>
+  );
+}
+
 // Operator-only: approve or reject pending accounts (closed service).
 export function AdminModal({ pending, onApprove, onReject, onRefresh, onClose }) {
   return (

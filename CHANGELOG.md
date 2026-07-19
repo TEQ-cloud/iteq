@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0-beta — 2026-07-19
+
+Optional read receipts.
+
+- **Added: read receipts** — your sent messages show ✓ (on the server) and
+  ✓✓ (read), like you'd expect from a chat app.
+- **Optional, both ways:** a switch in the new ⚙ Settings turns them off —
+  you then stop *sending* receipts and stop *seeing* them.
+- **E2E encrypted like everything else.** The receipt is a ciphertext blob;
+  the server relays and stores it without ever learning which message was
+  read. Receipts don't trigger push notifications and follow the chat's
+  storage mode (RAM receipts die with the Redis pod, persistent ones live on
+  the PVC and are swept with the 7-day retention).
+- Fixed: the BETA badge in the roadmap now matches the project site's style
+  (the bordered chip didn't fit the version column).
+
 ## 0.2.0-beta — 2026-07-17
 
 Push notifications.

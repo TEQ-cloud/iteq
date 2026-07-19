@@ -255,6 +255,20 @@ export function createProdStore() {
       await redis.del(keys);
       await redis.zRem(`np:files:${chatId}`, fileId);
     },
+    // Read receipts for RAM chats: latest ciphertext per member, TTL = retention.
+    async npSetReceipt(chatId, userId, receipt) {
+      await redis.set(`np:rcpt:${chatId}:${userId}`, JSON.stringify(receipt), {
+        EX: Math.ceil(config.retentionMs / 1000),
+      });
+    },
+    async npGetReceipts(chatId) {
+      const out = [];
+      for await (const key of redis.scanIterator({ MATCH: `np:rcpt:${chatId}:*`, COUNT: 100 })) {
+        const raw = await redis.get(key);
+        if (raw) out.push(JSON.parse(raw));
+      }
+      return out;
+    },
     async npUsage(chatId) {
       const ids = await redis.zRange(`np:files:${chatId}`, 0, -1);
       let total = 0;
@@ -292,6 +306,9 @@ export function createProdStore() {
           for (const fileId of fileIds) await this.npDelFile(chatId, fileId);
           if (msgIds.length) await redis.del(msgIds.map((m) => `np:msg:${chatId}:${m}`));
           await redis.del([`np:idx:${chatId}`, `np:files:${chatId}`]);
+          for await (const key of redis.scanIterator({ MATCH: `np:rcpt:${chatId}:*`, COUNT: 100 })) {
+            await redis.del(key);
+          }
           removedChats.push(chatId);
         }
         await db.query('DELETE FROM users WHERE id=$1', [userId]);
