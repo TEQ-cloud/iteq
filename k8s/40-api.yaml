@@ -20,18 +20,30 @@ spec:
     spec:
       containers:
         - name: api
-          image: ghcr.io/teq-cloud/iteq-api:0.1.2-beta # or your own registry
+          image: ghcr.io/teq-cloud/iteq-api:0.2.0-beta # or your own registry
           env:
             - name: MODE
               value: prod
             - name: APP_VERSION
-              value: 0.1.2-beta # shows up in /healthz — keep in step with the image tag
+              value: 0.2.0-beta # shows up in /healthz — keep in step with the image tag
             - name: ADMIN_USERS
               value: quinten # comma-separated usernames: auto-approved + may approve others
             - name: ADMIN_SETUP_CODE
               value: change-me # required to CLAIM an admin username at signup — set before going live!
             - name: ACCOUNT_RETENTION_DAYS
               value: "180" # accounts unused this long are deleted, chats included
+            # Web Push. Generate a pair with `npm run vapid` in the api image and
+            # put it in a Secret (kubectl create secret generic iteq-push \
+            #   --from-literal=vapidPublicKey=... --from-literal=vapidPrivateKey=...).
+            # Omit all three to disable push; in-app notifications still work.
+            - name: VAPID_SUBJECT
+              value: mailto:you@example.com # CHANGE ME
+            - name: VAPID_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: { name: iteq-push, key: vapidPublicKey, optional: true }
+            - name: VAPID_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef: { name: iteq-push, key: vapidPrivateKey, optional: true }
             - name: DATA_DIR
               value: /data
             - name: REDIS_URL

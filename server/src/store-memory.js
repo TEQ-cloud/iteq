@@ -11,6 +11,7 @@ export function createMemoryStore() {
   const fails = new Map();          // username -> {count, lockedUntil}
   const npMsgs = new Map();         // chatId -> Map<msgId, msg>
   const npFiles = new Map();        // fileId -> {meta, chunks: Buffer[]}
+  const pushSubs = new Map();       // endpoint -> {userId, sub}
   const bus = new EventEmitter();
   bus.setMaxListeners(0);
 
@@ -49,6 +50,18 @@ export function createMemoryStore() {
       users.delete(id);
       usersByName.delete(u.username);
       for (const [tok, s] of sessions) if (s.userId === id) sessions.delete(tok);
+      for (const [ep, s] of pushSubs) if (s.userId === id) pushSubs.delete(ep);
+    },
+
+    // --- web push subscriptions ---
+    async addPushSub(userId, sub) {
+      pushSubs.set(sub.endpoint, { userId, sub });
+    },
+    async listPushSubs(userId) {
+      return [...pushSubs.values()].filter((s) => s.userId === userId).map((s) => s.sub);
+    },
+    async delPushSub(endpoint) {
+      pushSubs.delete(endpoint);
     },
 
     // --- chats ---

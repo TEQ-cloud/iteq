@@ -129,22 +129,28 @@ function Landing({ onLogin, onCreate }) {
       <div className="roadmap">
         <h2>Roadmap</h2>
         <div className="roadmap-item current">
-          <div className="rv">v0.1.0 <span className="beta-chip">beta</span></div>
+          <div className="rv">v0.2.0 <span className="beta-chip">beta</span></div>
           <div className="rd">
-            <b>Now live.</b> End-to-end encrypted 1-on-1 chat · RAM or SSD storage per chat ·
-            7-day retention · file transfer with image &amp; video previews · reply, forward, copy,
-            delete · installable PWA · approval-gated accounts · in-tab notifications.
+            <b>Now live.</b> Push notifications while the app is closed (including the iOS
+            home-screen app) — with no message content in the payload, because the server
+            can't read it.
           </div>
         </div>
-        <div className="roadmap-item">
-          <div className="rv">v0.2.0</div>
+        <div className="roadmap-item done">
+          <div className="rv">v0.1.0</div>
           <div className="rd">
-            Push notifications while the app is closed (incl. iOS home-screen app) · public release:
-            Docker images, Helm chart &amp; compose example · optional read receipts.
+            End-to-end encrypted 1-on-1 chat · RAM or SSD storage per chat · 7-day retention ·
+            file transfer with image &amp; video previews · reply, forward, copy, delete ·
+            installable PWA · approval-gated accounts · public release: Docker images,
+            Helm chart &amp; compose example.
           </div>
         </div>
         <div className="roadmap-item">
           <div className="rv">v0.3.0</div>
+          <div className="rd">Optional read receipts.</div>
+        </div>
+        <div className="roadmap-item">
+          <div className="rv">v0.4.0</div>
           <div className="rd">Group chats.</div>
         </div>
         <div className="roadmap-item">

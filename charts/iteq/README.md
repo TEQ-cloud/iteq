@@ -53,6 +53,27 @@ the in-app 👥 panel.
 > Argo CD the app can briefly show *Degraded* for the same reason. This is
 > normal Kubernetes startup ordering; it settles by itself once Postgres is up.
 
+## Push notifications (optional)
+
+Generate a VAPID keypair once and pass it to the chart:
+
+```bash
+docker run --rm ghcr.io/teq-cloud/iteq-api:0.2.0-beta npm run vapid
+```
+
+```yaml
+push:
+  vapidPublicKey: "B..."
+  vapidPrivateKey: "..."
+  vapidSubject: "mailto:you@example.com"
+```
+
+Without keys, push is off and in-app notifications still work. On iOS/iPadOS
+users must add iTEQ to the Home Screen before notifications can be enabled —
+the app explains this when they tap 🔔. Push payloads contain no message
+content (the server has none), so Apple's and Google's push services learn
+nothing.
+
 ## Any edge you like
 
 The web service is a **complete entrypoint**: its nginx serves the app and
@@ -100,6 +121,9 @@ proxies `/api` + `/ws` to the api service. So every exposure style works:
 | `retention.contentDays` | `7` | Chat content lifetime (both storage modes) |
 | `retention.bigFileDays` | `3` | Lifetime for files over 5 GB |
 | `retention.accountDays` | `180` | Unused accounts are deleted after this |
+| `push.vapidPublicKey` / `push.vapidPrivateKey` | `""` | VAPID keypair for Web Push; empty = push disabled |
+| `push.vapidSubject` | `mailto:admin@example.com` | Contact URI required by the VAPID spec |
+| `push.existingSecret` | `""` | Secret with `vapidPublicKey`/`vapidPrivateKey` instead of inline values |
 | `api.hpa.*` / `web.hpa.*` | on | Autoscaling ranges |
 
 All values: [values.yaml](values.yaml). Storage semantics, crypto details and

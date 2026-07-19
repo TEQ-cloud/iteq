@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0-beta — 2026-07-17
+
+Push notifications.
+
+- **Fixed: notifications never appeared on iPhone/iPad.** The app used the
+  `Notification` constructor, which iOS does not implement at all — not even in
+  an installed PWA. The permission prompt appeared, then nothing ever showed.
+  All notifications now go through the service worker
+  (`registration.showNotification`), which works on every platform.
+- **Added: Web Push** — notifications arrive while the app is closed. Requires a
+  VAPID keypair on the server (`npm run vapid`, then the `push.*` Helm values or
+  `VAPID_*` env). Without keys, push is simply off and in-app alerts still work.
+  - iOS/iPadOS: the app must be added to the Home Screen first (Apple's rule).
+    The 🔔 button now explains that instead of failing silently.
+  - Tapping a notification opens the right chat.
+- **Push payloads carry no message content.** The server cannot read messages,
+  so a push says only which chat — and even that is encrypted end-to-end to the
+  device, so Apple's and Google's push services see nothing.
+- Subscriptions are stored per device and pruned automatically when a browser
+  drops them.
+
 ## 0.1.2-beta — 2026-07-16
 
 iOS fixes:

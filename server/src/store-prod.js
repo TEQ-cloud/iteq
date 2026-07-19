@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS chats (
   created_at bigint NOT NULL,
   last_ts bigint NOT NULL
 );
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint text PRIMARY KEY,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  sub jsonb NOT NULL,
+  created_at bigint NOT NULL
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions (user_id);
 CREATE TABLE IF NOT EXISTS chat_members (
   chat_id uuid REFERENCES chats(id) ON DELETE CASCADE,
   user_id uuid REFERENCES users(id) ON DELETE CASCADE,
@@ -70,6 +77,22 @@ export function createProdStore() {
       const r = await db.query("SELECT id, username, created_at FROM users WHERE status='pending' ORDER BY created_at");
       return r.rows.map((row) => ({ id: row.id, username: row.username, createdAt: Number(row.created_at) }));
     },
+    // --- web push subscriptions ---
+    async addPushSub(userId, sub) {
+      await db.query(
+        `INSERT INTO push_subscriptions (endpoint, user_id, sub, created_at) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, sub = EXCLUDED.sub`,
+        [sub.endpoint, userId, sub, Date.now()]
+      );
+    },
+    async listPushSubs(userId) {
+      const r = await db.query('SELECT sub FROM push_subscriptions WHERE user_id=$1', [userId]);
+      return r.rows.map((row) => row.sub);
+    },
+    async delPushSub(endpoint) {
+      await db.query('DELETE FROM push_subscriptions WHERE endpoint=$1', [endpoint]);
+    },
+
     async deleteUser(id) {
       await db.query('DELETE FROM users WHERE id=$1', [id]);
       // Redis sessions can't be enumerated per user cheaply; /me returning 401

@@ -5,7 +5,14 @@
       "name": "iteq-dev",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server/src/index.js"],
-      "env": { "MODE": "dev", "ADMIN_USERS": "quinten", "ADMIN_SETUP_CODE": "dev-code" },
+      "env": {
+        "MODE": "dev",
+        "ADMIN_USERS": "quinten",
+        "ADMIN_SETUP_CODE": "dev-code",
+        "VAPID_PUBLIC_KEY": "BAzf9QVY5ZKCz-xhCU3v1WWsbMwh81h2H1Q69WjgxvLBu5d7TqJ8myKUNPZzI409fJdEVqouvnSvLMSWbbnf4II",
+        "VAPID_PRIVATE_KEY": "HWB7KVqm7nu6oYX2aymOmXw7QdVzGOXWDVshmbEo8Jw",
+        "VAPID_SUBJECT": "mailto:dev@example.com"
+      },
       "port": 8080
     }
   ]

@@ -3,7 +3,8 @@ import { api } from '../lib/api.js';
 import { connectWs } from '../lib/ws.js';
 import { generateChatKey, wrapChatKey, unwrapChatKey, encryptJson, decryptJson } from '../lib/crypto.js';
 import { ChatView } from './ChatView.jsx';
-import { NewChatModal, TourModal, AdminModal } from './Modals.jsx';
+import { NewChatModal, TourModal, AdminModal, InfoModal } from './Modals.jsx';
+import { showLocal, enableNotifications, permission, notificationsSupported, isIOS, isStandalone } from '../lib/push.js';
 
 export function ChatApp({ ident, onLogout }) {
   const [chats, setChats] = useState([]); // decorated: {..., key, name}
@@ -15,23 +16,22 @@ export function ChatApp({ ident, onLogout }) {
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('iteq.tourDone'));
   const [showAdmin, setShowAdmin] = useState(false);
   const [pending, setPending] = useState([]);
-  const [notifPerm, setNotifPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [notifPerm, setNotifPerm] = useState(permission());
+  const [notifInfo, setNotifInfo] = useState(null); // explains iOS/denied cases
   const keysRef = useRef(new Map()); // chatId -> CryptoKey
   const chatsRef = useRef([]);
   const activeIdRef = useRef(null);
   chatsRef.current = chats;
   activeIdRef.current = activeId;
 
-  // In-tab notifications: fired when a message arrives for a hidden tab or an
-  // unopened chat. (Push while the app is closed is a v0.2.0 feature.)
+  // Notifications while the app is open. Routed through the service worker,
+  // because iOS has no Notification constructor — that's why nothing ever
+  // appeared on iPhone before. Background pushes are handled inside sw.js.
   const maybeNotify = useCallback((chat, dm) => {
     if (notifPerm !== 'granted' || dm.senderId === ident.user.id) return;
     if (!document.hidden && activeIdRef.current === chat.id) return;
     const body = dm.dec?.text || (dm.file ? `📎 ${dm.fileMeta?.name || 'file'}` : 'New message');
-    try {
-      const n = new Notification(chat.name, { body, icon: '/app-icon-192.png', tag: chat.id });
-      n.onclick = () => { window.focus(); openChatRef.current?.(chat); n.close(); };
-    } catch { /* some browsers restrict constructor use */ }
+    showLocal({ title: chat.name, body, chatId: chat.id });
   }, [notifPerm, ident.user.id]);
   const openChatRef = useRef(null);
 
@@ -69,6 +69,18 @@ export function ChatApp({ ident, onLogout }) {
   }, [keyFor]);
 
   useEffect(() => { loadChats(); }, [loadChats]);
+
+  // Tapping a notification (foreground or background) opens that chat.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const onMsg = (e) => {
+      if (e.data?.type !== 'open-chat' || !e.data.chatId) return;
+      const chat = chatsRef.current.find((c) => c.id === e.data.chatId);
+      if (chat) openChatRef.current?.(chat);
+    };
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, []);
 
   const loadPending = useCallback(async () => {
     if (!ident.user.admin) return;
@@ -187,9 +199,27 @@ export function ChatApp({ ident, onLogout }) {
               👥{pending.length > 0 && <span className="count-badge">{pending.length}</span>}
             </button>
           )}
-          {notifPerm === 'default' && (
-            <button className="btn-ghost" title="Enable notifications"
-              onClick={async () => setNotifPerm(await Notification.requestPermission())}>🔔</button>
+          {notificationsSupported() && notifPerm !== 'granted' && (
+            <button className="btn-ghost" title="Enable notifications" onClick={async () => {
+              const r = await enableNotifications();
+              setNotifPerm(permission());
+              if (r === 'needs-install') {
+                setNotifInfo({
+                  title: 'Add iTEQ to your Home Screen first',
+                  body: 'On iPhone and iPad, notifications only work once the app is installed: open this page in Safari, tap the Share button, then “Add to Home Screen”. Open iTEQ from that icon and tap 🔔 again.',
+                });
+              } else if (r === 'denied') {
+                setNotifInfo({
+                  title: 'Notifications are blocked',
+                  body: 'Your browser denied notifications for this site. Re-allow them in the browser or system settings for this site, then tap 🔔 again.',
+                });
+              } else if (r === 'granted-local') {
+                setNotifInfo({
+                  title: 'Notifications enabled (app open only)',
+                  body: 'You will get alerts while iTEQ is open. Background notifications are not configured on this server, so nothing arrives while the app is fully closed.',
+                });
+              }
+            }}>🔔</button>
           )}
           <button className="btn-ghost" title="How iTEQ works" onClick={() => setShowTour(true)}>？</button>
           <span className={`conn-dot ${wsOn ? 'on' : ''}`} title={wsOn ? 'Connected' : 'Reconnecting…'} />
@@ -247,6 +277,11 @@ export function ChatApp({ ident, onLogout }) {
         </main>
       )}
 
+      {notifInfo && (
+        <InfoModal title={notifInfo.title} onClose={() => setNotifInfo(null)}>
+          <p>{notifInfo.body}</p>
+        </InfoModal>
+      )}
       {showNew && <NewChatModal onCreate={createChat} onClose={() => setShowNew(false)} />}
       {showTour && <TourModal onClose={() => { localStorage.setItem('iteq.tourDone', '1'); setShowTour(false); }} />}
       {showAdmin && (

@@ -18,6 +18,18 @@ adminUsers: "quinten"
 # first becomes admin. Empty = no code required.
 adminSetupCode: ""
 
+# Web Push: notifications while the app is closed (iOS 16.4+ requires the app
+# to be installed to the Home Screen). Generate a keypair once with:
+#   docker run --rm ghcr.io/teq-cloud/iteq-api:<tag> npm run vapid
+# Leave empty to disable push entirely — in-app notifications keep working.
+# The private key is rendered into a Secret; or point at your own with
+# existingSecret (keys: vapidPublicKey, vapidPrivateKey).
+push:
+  vapidPublicKey: ""
+  vapidPrivateKey: ""
+  vapidSubject: "mailto:admin@example.com" # a contact address, per the VAPID spec
+  existingSecret: ""
+
 # The web service is a complete entrypoint (its nginx proxies /api and /ws to
 # the api), so ANY edge works: an Ingress of whatever class, a cloudflared
 # tunnel, or a tailscale/LoadBalancer-exposed web service with ingress

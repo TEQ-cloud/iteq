@@ -5,6 +5,7 @@ import express from 'express';
 import { config } from './config.js';
 import { pstore } from './pstore.js';
 import { uuid, token, now, scryptHash, scryptVerify, validUsername, validId } from './util.js';
+import { pushEnabled, pushToUsers } from './push.js';
 
 const isEncBlob = (o) => o && typeof o === 'object' && typeof o.iv === 'string' && typeof o.ct === 'string';
 
@@ -80,6 +81,30 @@ export function createApi(store, bus) {
   api.get('/me', requireAuth, async (req, res) => {
     await store.touchUser(req.user.id, now()); // called on every app boot
     res.json({ user: { id: req.user.id, username: req.user.username, status: req.user.status, admin: isAdmin(req.user) } });
+  });
+
+  // ---------- web push ----------
+  api.get('/push/vapid', (_req, res) => {
+    res.json({ enabled: pushEnabled(), publicKey: config.vapidPublicKey || null });
+  });
+
+  const validSub = (s) => s && typeof s === 'object' && typeof s.endpoint === 'string'
+    && /^https:\/\//.test(s.endpoint) && s.endpoint.length < 2048
+    && s.keys && typeof s.keys.p256dh === 'string' && typeof s.keys.auth === 'string';
+
+  api.post('/push/subscribe', requireAuth, requireActive, async (req, res) => {
+    if (!pushEnabled()) return res.status(503).json({ error: 'push-disabled' });
+    const { subscription } = req.body || {};
+    if (!validSub(subscription)) return res.status(400).json({ error: 'bad-subscription' });
+    await store.addPushSub(req.userId, subscription);
+    res.json({ ok: true });
+  });
+
+  api.post('/push/unsubscribe', requireAuth, async (req, res) => {
+    const { endpoint } = req.body || {};
+    if (typeof endpoint !== 'string') return res.status(400).json({ error: 'bad-request' });
+    await store.delPushSub(endpoint);
+    res.json({ ok: true });
   });
 
   // ---------- admin: approval-gated registration ----------
@@ -198,6 +223,10 @@ export function createApi(store, bus) {
     await dataFor(req.chat).add(msg);
     await store.touchChat(req.chat.id, ts);
     await bus.publish({ type: 'message.new', chatId: req.chat.id, msg, recipients: req.chat.memberIds });
+    // Wake the other member's devices. No content — the server has none.
+    pushToUsers(store, req.chat.memberIds.filter((id) => id !== req.userId), {
+      type: 'message', chatId: req.chat.id,
+    }).catch((e) => console.error('push:', e.message));
     res.json({ message: msg });
   });
 

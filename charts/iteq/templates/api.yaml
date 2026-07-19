@@ -35,6 +35,21 @@ spec:
             - name: ADMIN_SETUP_CODE
               value: {{ . | quote }}
             {{- end }}
+            {{- $pushSecret := .Values.push.existingSecret | default (printf "%s-push" (include "iteq.fullname" .)) }}
+            {{- if or .Values.push.existingSecret .Values.push.vapidPrivateKey }}
+            - name: VAPID_SUBJECT
+              value: {{ .Values.push.vapidSubject | quote }}
+            - name: VAPID_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $pushSecret }}
+                  key: vapidPublicKey
+            - name: VAPID_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $pushSecret }}
+                  key: vapidPrivateKey
+            {{- end }}
             - name: REDIS_URL
               value: redis://{{ include "iteq.fullname" . }}-redis:6379
             - name: DATABASE_URL

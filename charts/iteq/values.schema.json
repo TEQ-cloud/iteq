@@ -35,6 +35,24 @@
       "type": "string",
       "description": "Code required to claim an admin username at signup. Empty = no code required (unsafe on public deployments)."
     },
+    "push": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Web Push (VAPID). Leave keys empty to disable background notifications.",
+      "properties": {
+        "vapidPublicKey": { "type": "string" },
+        "vapidPrivateKey": { "type": "string" },
+        "vapidSubject": {
+          "type": "string",
+          "pattern": "^(mailto:|https://)",
+          "description": "Contact URI required by the VAPID spec: mailto:… or https://…"
+        },
+        "existingSecret": {
+          "type": "string",
+          "description": "Secret holding vapidPublicKey and vapidPrivateKey; overrides the inline keys."
+        }
+      }
+    },
     "ingress": {
       "type": "object",
       "additionalProperties": false,

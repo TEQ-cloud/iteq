@@ -129,6 +129,8 @@ a { color: var(--accent); }
   margin-left: 6px;
 }
 .roadmap-item.current { border-left-color: var(--accent); background: rgba(17,96,239,0.05); border-radius: 0 12px 12px 0; }
+.roadmap-item.done { border-left-color: var(--ok); }
+.roadmap-item.done .rv { color: var(--ok); }
 .roadmap-item .rv { font-weight: 800; min-width: 84px; white-space: nowrap; }
 .roadmap-item.current .rv { color: var(--accent); }
 .roadmap-item .rd { color: var(--muted); font-size: 14px; }

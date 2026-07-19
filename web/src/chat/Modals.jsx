@@ -176,6 +176,12 @@ export function TourModal({ onClose }) {
         <b> “Add to Home Screen”</b>. iTEQ then opens full-screen, like a normal app.<br />
         <b>Android / desktop:</b> browser menu → <b>“Install app”</b> (or “Add to Home screen”).
       </p>
+      <p style={{ fontSize: 14 }}>
+        <b>Notifications:</b> tap 🔔 in the header to get alerted about new messages, even when
+        iTEQ is closed. On iPhone and iPad this only works <b>after</b> you've added it to the
+        Home Screen — that's Apple's rule, not ours. The alert never contains your message text:
+        the server can't read it.
+      </p>
       {imgOk
         ? <img className="tour-img" src="/tour-ios.png" alt="Adding iTEQ to the iOS home screen" onError={() => setImgOk(false)} />
         : <p className="hint" style={{ fontSize: 12.5, color: 'var(--muted)' }}>(iOS screenshot coming during the beta.)</p>}

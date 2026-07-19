@@ -17,6 +17,13 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   redisUrl: process.env.REDIS_URL || '',
 
+  // Web Push (VAPID). Generate a pair with `npm run vapid` and set BOTH on every
+  // api pod (same values — a per-pod keypair would invalidate subscriptions).
+  // Unset = push simply disabled; everything else keeps working.
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+  vapidSubject: process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
+
   // Storage rules
   npFileMax: Number(process.env.NP_FILE_MAX || GiB),        // 1 GiB per file in RAM chats
   npChatMax: Number(process.env.NP_CHAT_MAX || 2 * GiB),    // 2 GiB total per RAM chat

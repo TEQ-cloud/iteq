@@ -6,12 +6,14 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "MODE=dev node src/index.js",
-    "prune": "node src/prune.js"
+    "prune": "node src/prune.js",
+    "vapid": "node src/vapid.js"
   },
   "dependencies": {
     "express": "^4.21.2",
     "pg": "^8.13.1",
     "redis": "^4.7.0",
+    "web-push": "^3.6.7",
     "ws": "^8.18.0"
   },
   "license": "Apache-2.0"
