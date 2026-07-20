@@ -18,10 +18,20 @@ spec:
       labels:
         app: {{ include "iteq.fullname" . }}-api
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # the image's "node" user; matches existing PVC ownership
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image: {{ include "iteq.apiImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true # only /data (PVC) and /tmp are written
+            capabilities:
+              drop: [ALL]
           env:
             - name: MODE
               value: prod
@@ -52,6 +62,15 @@ spec:
             {{- end }}
             - name: REDIS_URL
               value: redis://{{ include "iteq.fullname" . }}-redis:6379
+            {{- if .Values.redis.auth.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "iteq.redisSecretName" . }}
+                  key: {{ .Values.redis.auth.existingSecretKey }}
+            {{- end }}
+            - name: TRUST_PROXY_HOPS
+              value: {{ .Values.api.trustProxyHops | quote }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -68,6 +87,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp # the only writable path left once the rootfs is read-only
+              mountPath: /tmp
           readinessProbe:
             httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 3
@@ -77,6 +98,8 @@ spec:
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "iteq.fullname" . }}-data

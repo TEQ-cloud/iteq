@@ -73,9 +73,31 @@ redis:
   memoryLimit: 9Gi # keep ~1Gi above maxmemory
   resources:
     requests: { cpu: 100m, memory: 1Gi }
+  auth:
+    # Redis holds sessions and RAM-chat ciphertext. The password is generated at
+    # install time and kept across upgrades, so there is nothing to provision;
+    # rotate by deleting the <release>-redis-auth Secret and upgrading.
+    enabled: true
+    password: "" # pin your own instead of generating one (rarely needed)
+    # GitOps (Argo CD / Flux) renders with `helm template`, where the cluster
+    # lookup that preserves the generated password is unavailable — it would
+    # mint a new one on every sync. Pre-create a Secret and name it here:
+    #   kubectl -n iteq create secret generic iteq-redis-auth \
+    #     --from-literal=redis-password="$(openssl rand -hex 32)"
+    existingSecret: ""
+    existingSecretKey: redis-password
+
+# Restricts Redis to the api pods. Needs a CNI that enforces NetworkPolicy;
+# where it isn't enforced the object is simply inert.
+networkPolicy:
+  enabled: true
 
 api:
   replicas: 2
+  # Reverse-proxy hops in front of the api, used to find the real client ip for
+  # the per-ip signup/login limits. 1 = the web pod's nginx. Count the ingress
+  # controller too if it forwards straight to the api service.
+  trustProxyHops: 1
   resources:
     requests: { cpu: 200m, memory: 256Mi }
     limits: { memory: 1Gi }

@@ -16,9 +16,18 @@ spec:
     metadata:
       labels: { app: iteq-web }
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
-          image: ghcr.io/teq-cloud/iteq-web:0.3.0-beta # or your own registry
+          image: ghcr.io/teq-cloud/iteq-web:0.3.1-beta # or your own registry
+          # Lighter than the api on purpose: the stock nginx image starts as
+          # root to write its pid/cache and drops workers to the nginx user, so
+          # runAsNonRoot / readOnlyRootFilesystem / dropping ALL caps would stop
+          # it booting. Use nginxinc/nginx-unprivileged for the full set.
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: API_UPSTREAM # web nginx proxies /api and /ws here
               value: iteq-api:8080

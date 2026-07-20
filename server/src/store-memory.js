@@ -9,6 +9,7 @@ export function createMemoryStore() {
   const chats = new Map();          // chatId -> {id, storage, createdAt, lastTs, members: Map<userId, {wrappedKey, encName}>}
   const sessions = new Map();       // token -> {userId, expires}
   const fails = new Map();          // username -> {count, lockedUntil}
+  const rateLimits = new Map();     // key -> {count, resetAt}
   const npMsgs = new Map();         // chatId -> Map<msgId, msg>
   const npFiles = new Map();        // fileId -> {meta, chunks: Buffer[]}
   const pushSubs = new Map();       // endpoint -> {userId, sub}
@@ -57,12 +58,17 @@ export function createMemoryStore() {
     // --- web push subscriptions ---
     async addPushSub(userId, sub) {
       pushSubs.set(sub.endpoint, { userId, sub });
+      // Cap devices per account (see the prod store for the rationale).
+      const mine = [...pushSubs.entries()].filter(([, s]) => s.userId === userId);
+      for (const [ep] of mine.slice(0, Math.max(0, mine.length - config.maxPushSubsPerUser))) pushSubs.delete(ep);
     },
     async listPushSubs(userId) {
       return [...pushSubs.values()].filter((s) => s.userId === userId).map((s) => s.sub);
     },
-    async delPushSub(endpoint) {
-      pushSubs.delete(endpoint);
+    // userId scopes the delete to its owner; omitted only by internal cleanup.
+    async delPushSub(endpoint, userId) {
+      const s = pushSubs.get(endpoint);
+      if (s && (!userId || s.userId === userId)) pushSubs.delete(endpoint);
     },
 
     // --- chats ---
@@ -132,6 +138,21 @@ export function createMemoryStore() {
     },
     async authOk(username) {
       fails.delete(username);
+    },
+
+    // --- generic fixed-window counter (per-ip abuse limits) ---
+    async hitRateLimit(key, windowMs) {
+      const now = Date.now();
+      const cur = rateLimits.get(key);
+      if (!cur || now > cur.resetAt) {
+        rateLimits.set(key, { count: 1, resetAt: now + windowMs });
+        return 1;
+      }
+      cur.count += 1;
+      return cur.count;
+    },
+    async countPendingUsers() {
+      return [...users.values()].filter((u) => u.status === 'pending').length;
     },
 
     // --- non-persistent (RAM) chat data ---

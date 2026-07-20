@@ -2,6 +2,13 @@
 # tier. Sessions, rate limits, pubsub and all RAM-chat messages/files live
 # here. When this pod restarts or reschedules, that data is genuinely gone —
 # which is exactly what the UI promises users.
+#
+# It also means Redis holds session tokens and chat ciphertext, so it is
+# password-protected and (see 80-networkpolicy.yaml) only reachable from the
+# api pods. Create the secret once, before `kubectl apply -k k8s/`:
+#
+#   kubectl -n iteq create secret generic iteq-redis-auth \
+#     --from-literal=redis-password="$(openssl rand -hex 32)"
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,17 +24,37 @@ spec:
     metadata:
       labels: { app: iteq-redis }
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999 # redis
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
-          args:
-            - redis-server
-            - --save ''            # no RDB snapshots
-            - --appendonly no      # no AOF
-            - --maxmemory 8gb      # adjust to what the PowerEdges can spare
-            - --maxmemory-policy noeviction # full = uploads fail loudly, chats aren't silently evicted
+          # sh -c because redis-server does not expand env vars in its own
+          # arguments, and the password must not sit in the pod spec.
+          command:
+            - sh
+            - -c
+            - >-
+              exec redis-server
+              --save ''
+              --appendonly no
+              --maxmemory 8gb
+              --maxmemory-policy noeviction
+              --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: iteq-redis-auth, key: redis-password }
           ports:
             - containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           resources:
             requests: { cpu: 100m, memory: 1Gi }
             limits: { memory: 9Gi } # keep ~1Gi above maxmemory

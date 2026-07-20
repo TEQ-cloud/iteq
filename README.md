@@ -95,13 +95,26 @@ adding it to the list, order doesn't matter.
 
 **Important:** `ADMIN_USERS` reserves a *username* — the server never stores an
 admin PIN. The account only exists once someone signs up with that username and
-picks their own PIN. On a public deployment that's a race: whoever registers the
-admin username first becomes admin. So set **`ADMIN_SETUP_CODE`** (env / Helm
-value `adminSetupCode` / compose `.env`): claiming an admin username at signup
-then requires that code — the UI asks for it automatically. Regular signups are
-unaffected. There are no other secrets to provision: CNPG generates the database
-credentials itself (`<cluster>-app` secret), unless you bring your own — see
-[examples/cnpg.yaml](examples/cnpg.yaml).
+picks their own PIN. Without a code that would be a race: whoever registers the
+admin username first becomes admin. So **`ADMIN_SETUP_CODE` is required**
+(env / Helm value `adminSetupCode` / compose `.env`) — claiming an admin
+username asks for it, and since 0.3.1-beta the api **refuses to hand out the
+admin account at all** while the code is missing, shorter than 8 characters, or
+an obvious placeholder like `change-me`. It says so at startup. Generate one
+with `openssl rand -hex 16`. Regular signups are unaffected.
+
+Other secrets provision themselves: CNPG generates the database credentials
+(`<cluster>-app` secret) unless you bring your own — see
+[examples/cnpg.yaml](examples/cnpg.yaml) — and the Helm chart generates the
+Redis password at install and keeps it across upgrades. If you deploy with
+Argo CD or Flux, pre-create that Secret and set `redis.auth.existingSecret`:
+a `helm template` render cannot preserve a generated password and would mint a
+new one on every sync. With the raw manifests, create it once:
+
+```bash
+kubectl -n iteq create secret generic iteq-redis-auth \
+  --from-literal=redis-password="$(openssl rand -hex 32)"
+```
 
 ## Architecture
 

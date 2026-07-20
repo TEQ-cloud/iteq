@@ -15,10 +15,20 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: prune
-              image: ghcr.io/teq-cloud/iteq-api:0.3.0-beta # same image as the api
+              image: ghcr.io/teq-cloud/iteq-api:0.3.1-beta # same image as the api
               command: ["node", "src/prune.js"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
               env:
                 - name: DATA_DIR
                   value: /data

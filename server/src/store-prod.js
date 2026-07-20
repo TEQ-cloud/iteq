@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS chat_members (
 
 export function createProdStore() {
   const db = new pg.Pool({ connectionString: config.databaseUrl });
-  const redis = createClient({ url: config.redisUrl });
+  const redis = createClient({ url: config.redisUrl, ...(config.redisPassword ? { password: config.redisPassword } : {}) });
   const sub = redis.duplicate();
   const CHANNEL = 'iteq:events';
   const rowUser = (r) => r && { id: r.id, username: r.username, authHash: r.auth_hash, pubJwk: r.pub_jwk, encPriv: r.enc_priv, status: r.status, createdAt: Number(r.created_at) };
@@ -84,13 +84,24 @@ export function createProdStore() {
          ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, sub = EXCLUDED.sub`,
         [sub.endpoint, userId, sub, Date.now()]
       );
+      // Keep only the newest N devices per account: subscriptions are cheap to
+      // create, so without a cap one account can grow the table without bound.
+      await db.query(
+        `DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint NOT IN (
+           SELECT endpoint FROM push_subscriptions WHERE user_id = $1
+           ORDER BY created_at DESC LIMIT $2)`,
+        [userId, config.maxPushSubsPerUser]
+      );
     },
     async listPushSubs(userId) {
       const r = await db.query('SELECT sub FROM push_subscriptions WHERE user_id=$1', [userId]);
       return r.rows.map((row) => row.sub);
     },
-    async delPushSub(endpoint) {
-      await db.query('DELETE FROM push_subscriptions WHERE endpoint=$1', [endpoint]);
+    // userId scopes the delete to its owner. It is omitted only by the internal
+    // cleanup path, where the push service itself reported the endpoint dead.
+    async delPushSub(endpoint, userId) {
+      if (userId) await db.query('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, userId]);
+      else await db.query('DELETE FROM push_subscriptions WHERE endpoint=$1', [endpoint]);
     },
 
     async deleteUser(id) {
@@ -191,6 +202,18 @@ export function createProdStore() {
     },
     async authOk(username) {
       await redis.del(`af:${username}`, `lock:${username}`);
+    },
+
+    // --- generic fixed-window counter (per-ip abuse limits) ---
+    async hitRateLimit(key, windowMs) {
+      const k = `rl:${key}`;
+      const count = await redis.incr(k);
+      if (count === 1) await redis.pExpire(k, windowMs);
+      return count;
+    },
+    async countPendingUsers() {
+      const r = await db.query("SELECT COUNT(*)::int AS n FROM users WHERE status='pending'");
+      return r.rows[0]?.n ?? 0;
     },
 
     // --- non-persistent (RAM) chat data in Redis ---

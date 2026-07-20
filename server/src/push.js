@@ -9,6 +9,19 @@ import { config } from './config.js';
 
 export const pushEnabled = () => Boolean(config.vapidPublicKey && config.vapidPrivateKey);
 
+// A subscription endpoint is a URL supplied by a client that the server then
+// sends requests to — i.e. a request-forgery primitive if left open. Only the
+// real push services are accepted, so a crafted subscription can't point the
+// api at something on the internal network.
+export function validPushEndpoint(endpoint) {
+  if (config.pushAllowAnyEndpoint) return true;
+  let url;
+  try { url = new URL(endpoint); } catch { return false; }
+  if (url.protocol !== 'https:') return false;
+  const host = url.hostname.toLowerCase();
+  return config.pushEndpointHosts.some((h) => host === h || host.endsWith(`.${h}`));
+}
+
 if (pushEnabled()) {
   webpush.setVapidDetails(config.vapidSubject, config.vapidPublicKey, config.vapidPrivateKey);
 }

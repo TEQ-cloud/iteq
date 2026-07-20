@@ -16,17 +16,48 @@ spec:
       labels:
         app: {{ include "iteq.fullname" . }}-redis
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999 # redis
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
+          {{- if .Values.redis.auth.enabled }}
+          # sh -c because redis-server does not expand environment variables in
+          # its own arguments — the password must never appear in the pod spec.
+          command:
+            - sh
+            - -c
+            - >-
+              exec redis-server
+              --save ''
+              --appendonly no
+              --maxmemory {{ .Values.redis.maxmemory }}
+              --maxmemory-policy noeviction
+              --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "iteq.redisSecretName" . }}
+                  key: {{ .Values.redis.auth.existingSecretKey }}
+          {{- else }}
           args:
             - redis-server
             - --save ''
             - --appendonly no
             - --maxmemory {{ .Values.redis.maxmemory }}
             - --maxmemory-policy noeviction
+          {{- end }}
           ports:
             - containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           resources:
             {{- toYaml .Values.redis.resources | nindent 12 }}
             limits:

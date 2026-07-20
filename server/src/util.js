@@ -24,5 +24,22 @@ export function scryptVerify(secret, stored) {
   }
 }
 
+// Burns the same work as a real scryptVerify for accounts that don't exist, so
+// a failed login takes the same time either way. Without it the response time
+// alone tells an attacker which usernames are real — and "no directory" is a
+// promise this service makes.
+const DUMMY_HASH = scryptHash('iteq-nonexistent-account');
+export function scryptVerifyDummy() {
+  scryptVerify('iteq-nonexistent-account-probe', DUMMY_HASH);
+}
+
+// Length-independent comparison for short secrets (admin setup code).
+export function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ha = crypto.createHash('sha256').update(a).digest();
+  const hb = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 export const validUsername = (u) => typeof u === 'string' && /^[a-z0-9_-]{3,24}$/.test(u);
 export const validId = (s) => typeof s === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(s);

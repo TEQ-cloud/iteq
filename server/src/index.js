@@ -20,6 +20,18 @@ await store.init();
 
 const app = express();
 app.disable('x-powered-by');
+// The api sits behind the web nginx (and usually an ingress too), so the real
+// client ip comes from X-Forwarded-For. Per-ip abuse limits are keyed on it.
+app.set('trust proxy', config.trustProxyHops);
+
+// Refusing to hand out an admin account is a config problem, not a runtime one:
+// say so loudly at boot instead of letting it surface as a confusing signup error.
+if (config.adminUsers.length && !config.adminSetupCodeUsable) {
+  console.warn(
+    `WARNING: ADMIN_USERS is set (${config.adminUsers.join(', ')}) but ADMIN_SETUP_CODE is missing, ` +
+    'too short (<8 chars) or a placeholder. Claiming an admin username is refused until you set a real code.'
+  );
+}
 const health = (_req, res) => res.json({ ok: true, version: config.appVersion });
 app.get('/healthz', health);       // probes (direct to the pod)
 app.get('/api/healthz', health);   // reachable through the ingress

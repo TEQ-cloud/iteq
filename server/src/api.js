@@ -4,14 +4,33 @@
 import express from 'express';
 import { config } from './config.js';
 import { pstore } from './pstore.js';
-import { uuid, token, now, scryptHash, scryptVerify, validUsername, validId } from './util.js';
-import { pushEnabled, pushToUsers } from './push.js';
+import { uuid, token, now, scryptHash, scryptVerify, scryptVerifyDummy, safeEqual, validUsername, validId } from './util.js';
+import { pushEnabled, pushToUsers, validPushEndpoint } from './push.js';
 
 const isEncBlob = (o) => o && typeof o === 'object' && typeof o.iv === 'string' && typeof o.ct === 'string';
+const HOUR = 60 * 60 * 1000;
 
 export function createApi(store, bus) {
   const api = express.Router();
   api.use(express.json({ limit: '256kb' }));
+
+  // Ciphertext and tokens must not linger in any proxy or browser cache.
+  api.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    next();
+  });
+
+  // Per-ip fixed window on the unauthenticated endpoints. req.ip honours the
+  // configured proxy hop count (see config.trustProxyHops).
+  const perIp = (bucket, limit, windowMs) => async (req, res, next) => {
+    if (limit <= 0) return next();
+    try {
+      const hits = await store.hitRateLimit(`${bucket}:${req.ip}`, windowMs);
+      if (hits > limit) return res.status(429).json({ error: 'rate-limited' });
+    } catch { /* limiter unavailable: fail open rather than lock everyone out */ }
+    next();
+  };
 
   // ---------- auth ----------
   const isAdmin = (user) => config.adminUsers.includes(user.username);
@@ -39,16 +58,23 @@ export function createApi(store, bus) {
     next();
   };
 
-  api.post('/auth/signup', async (req, res) => {
+  api.post('/auth/signup', perIp('signup', config.signupsPerIpPerHour, HOUR), async (req, res) => {
     const { username, authKey, pubJwk, encPriv } = req.body || {};
     if (!validUsername(username)) return res.status(400).json({ error: 'bad-username' });
     if (typeof authKey !== 'string' || !/^[0-9a-f]{64}$/.test(authKey)) return res.status(400).json({ error: 'bad-auth-key' });
     if (!pubJwk || typeof pubJwk !== 'object' || !isEncBlob(encPriv)) return res.status(400).json({ error: 'bad-keys' });
     const isAdminName = config.adminUsers.includes(username);
-    if (isAdminName && config.adminSetupCode) {
+    if (isAdminName) {
+      // Fail closed: without a usable setup code, claiming an admin username is
+      // a race that whoever registers first wins. Refuse instead of granting it.
+      if (!config.adminSetupCodeUsable) return res.status(403).json({ error: 'admin-code-not-configured' });
       const { setupCode } = req.body;
       if (typeof setupCode !== 'string' || !setupCode) return res.status(403).json({ error: 'admin-code-required' });
-      if (setupCode !== config.adminSetupCode) return res.status(403).json({ error: 'bad-admin-code' });
+      if (!safeEqual(setupCode, config.adminSetupCode)) return res.status(403).json({ error: 'bad-admin-code' });
+    } else if (config.maxPendingAccounts > 0) {
+      // Keeps a signup flood from burying the approval panel.
+      const pendingCount = await store.countPendingUsers();
+      if (pendingCount >= config.maxPendingAccounts) return res.status(503).json({ error: 'signups-full' });
     }
     const status = isAdminName ? 'active' : 'pending';
     const ts = now();
@@ -61,12 +87,15 @@ export function createApi(store, bus) {
     res.json({ token: tok, user: { id: user.id, username, status, admin: isAdmin(user) }, pubJwk, encPriv });
   });
 
-  api.post('/auth/login', async (req, res) => {
+  api.post('/auth/login', perIp('login', config.loginsPerIpPerHour, HOUR), async (req, res) => {
     const { username, authKey } = req.body || {};
     if (!validUsername(username) || typeof authKey !== 'string') return res.status(400).json({ error: 'bad-request' });
     const lockedUntil = await store.isLocked(username);
     if (lockedUntil) return res.status(429).json({ error: 'locked', until: lockedUntil });
     const user = await store.getUserByName(username);
+    // Unknown username still pays the scrypt cost, so timing can't distinguish
+    // "wrong PIN" from "no such account".
+    if (!user) scryptVerifyDummy();
     if (!user || !scryptVerify(authKey, user.authHash)) {
       const until = await store.authFail(username);
       return res.status(401).json({ error: 'bad-credentials', ...(until ? { locked: true, until } : {}) });
@@ -96,6 +125,7 @@ export function createApi(store, bus) {
     if (!pushEnabled()) return res.status(503).json({ error: 'push-disabled' });
     const { subscription } = req.body || {};
     if (!validSub(subscription)) return res.status(400).json({ error: 'bad-subscription' });
+    if (!validPushEndpoint(subscription.endpoint)) return res.status(400).json({ error: 'bad-push-endpoint' });
     await store.addPushSub(req.userId, subscription);
     res.json({ ok: true });
   });
@@ -103,7 +133,9 @@ export function createApi(store, bus) {
   api.post('/push/unsubscribe', requireAuth, async (req, res) => {
     const { endpoint } = req.body || {};
     if (typeof endpoint !== 'string') return res.status(400).json({ error: 'bad-request' });
-    await store.delPushSub(endpoint);
+    // Scoped to the caller: an endpoint is just a URL, so without the owner
+    // check any account could unsubscribe somebody else's device.
+    await store.delPushSub(endpoint, req.userId);
     res.json({ ok: true });
   });
 
@@ -315,7 +347,15 @@ export function createApi(store, bus) {
     if (ram) await store.npFilePutChunk(req.chat.id, fileId, n, buf);
     else await pstore.filePutChunk(req.chat.id, fileId, n, buf, n * meta.encChunkSize);
 
-    meta.received += buf.length;
+    // Count each chunk index once. Re-uploading the same chunk used to add to
+    // `received` every time, so a client could satisfy the completeness check
+    // while leaving holes in the file. (`have` may be absent on an upload that
+    // started before this version — then this simply behaves as before.)
+    if (!Array.isArray(meta.have)) meta.have = [];
+    if (!meta.have.includes(n)) {
+      meta.have.push(n);
+      meta.received += buf.length;
+    }
     if (ram) await store.npFileSetMeta(req.chat.id, fileId, meta);
     else await pstore.fileSetMeta(req.chat.id, fileId, meta);
     res.json({ ok: true, received: meta.received });
@@ -323,9 +363,13 @@ export function createApi(store, bus) {
 
   api.post('/chats/:chatId/files/:fileId/complete', requireAuth, requireActive, requireMember, async (req, res) => {
     const { fileId } = req.params;
+    // validId is what keeps `fileId` out of the filesystem path below: Express
+    // percent-decodes params, so an unchecked id can carry "../" and escape the
+    // chat's directory entirely.
+    if (!validId(fileId)) return res.status(400).json({ error: 'bad-request' });
     const ram = req.chat.storage === 'ram';
     const meta = ram ? await store.npFileMeta(req.chat.id, fileId) : await pstore.fileMeta(req.chat.id, fileId);
-    if (!meta || meta.uploaderId !== req.userId) return res.status(404).json({ error: 'not-found' });
+    if (!meta || meta.chatId !== req.chat.id || meta.uploaderId !== req.userId) return res.status(404).json({ error: 'not-found' });
     if (meta.received < meta.size) return res.status(400).json({ error: 'incomplete', received: meta.received, size: meta.size });
     meta.complete = true;
     meta.uploadedAt = now();
@@ -336,6 +380,7 @@ export function createApi(store, bus) {
 
   api.get('/chats/:chatId/files/:fileId/meta', requireAuth, requireActive, requireMember, async (req, res) => {
     const { fileId } = req.params;
+    if (!validId(fileId)) return res.status(400).json({ error: 'bad-request' });
     const meta = req.chat.storage === 'ram'
       ? await store.npFileMeta(req.chat.id, fileId)
       : await pstore.fileMeta(req.chat.id, fileId);

@@ -1,0 +1,28 @@
+{{- if .Values.networkPolicy.enabled }}
+# Redis holds session tokens and every RAM chat's ciphertext, so nothing except
+# the api has any business reaching it. Combined with requirepass this means a
+# compromised neighbour workload can neither connect nor authenticate.
+#
+# Requires a CNI that enforces NetworkPolicy (Calico, Cilium, ...). On a CNI
+# that ignores them this object is inert — it never breaks anything, it just
+# stops helping. Note that `kubectl port-forward` to Redis stops working while
+# this is on; that is the point.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "iteq.fullname" . }}-redis
+  labels: {{- include "iteq.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "iteq.fullname" . }}-redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ include "iteq.fullname" . }}-api
+      ports:
+        - protocol: TCP
+          port: 6379
+{{- end }}

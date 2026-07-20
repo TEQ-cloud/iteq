@@ -137,10 +137,11 @@ function Landing({ onLogin, onCreate }) {
           <div className="rd">Group chats.</div>
         </div>
         <div className="roadmap-item current">
-          <div className="rv">v0.3.0 <span style={{ fontSize: 11 }}>BETA</span></div>
+          <div className="rv">v0.3.1 <span style={{ fontSize: 11 }}>BETA</span></div>
           <div className="rd">
-            <b>Now live.</b> Optional read receipts — end-to-end encrypted like everything
-            else, with an off-switch that works both ways.
+            <b>Now live.</b> Security hardening across the board, from a full audit — stricter
+            access checks, rate limiting, a locked-down Redis and a strict content policy.
+            Nothing changes in how you chat. Read receipts (v0.3.0) stay as they were.
           </div>
         </div>
         <div className="roadmap-item done">
@@ -244,6 +245,9 @@ function Auth({ initialMode = 'login', onAuthed }) {
     } catch (err) {
       if (err.message === 'admin-code-required') { setNeedCode(true); setError('This username is reserved for an admin. Enter the admin setup code from the server configuration.'); }
       else if (err.message === 'bad-admin-code') { setNeedCode(true); setError('Wrong admin setup code.'); }
+      else if (err.message === 'admin-code-not-configured') setError('This username is reserved for an admin, but the server has no admin setup code set. Set ADMIN_SETUP_CODE (at least 8 characters) on the api and try again.');
+      else if (err.message === 'signups-full') setError('The server is not accepting new accounts right now — too many are already waiting for approval. Try again later.');
+      else if (err.message === 'rate-limited') setError('Too many attempts from your connection. Wait a bit and try again.');
       else if (err.message === 'username-taken') setError('That username already exists. Plum out of luck — pick another one.');
       else if (err.message === 'bad-credentials') setError('Wrong username or PIN.');
       else if (err.message === 'locked' || err.body?.locked) setError(`Too many attempts. Locked for a while — try again later.`);

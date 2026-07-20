@@ -9,3 +9,4 @@ resources:
   - 50-web.yaml
   - 60-ingress.yaml
   - 70-retention-cronjob.yaml
+  - 80-networkpolicy.yaml

@@ -1,0 +1,23 @@
+# Redis holds session tokens and every RAM chat's ciphertext, so only the api
+# has any business reaching it. Together with the password in 20-redis.yaml, a
+# compromised neighbour workload can neither connect nor authenticate.
+#
+# Needs a CNI that enforces NetworkPolicy (Calico, Cilium, ...); where it isn't
+# enforced this object is inert. Note that `kubectl port-forward` to Redis
+# stops working while this is applied — that is the intent.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: iteq-redis
+  namespace: iteq
+spec:
+  podSelector:
+    matchLabels: { app: iteq-redis }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: iteq-api }
+      ports:
+        - protocol: TCP
+          port: 6379

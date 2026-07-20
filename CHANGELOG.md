@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.3.1-beta — 2026-07-20
+
+Security hardening release, from a full audit of the codebase plus the
+Artifact Hub image scan. No user-visible changes to how chatting works.
+
+**Fixed — access control**
+
+- **Path traversal (`fileId`).** `POST /files/:fileId/complete` and
+  `GET /files/:fileId/meta` didn't validate the id before it reached the
+  filesystem. Express percent-decodes path params, so an encoded `../` escaped
+  the chat's directory and could read any `*.meta.json` on the volume —
+  including other chats'. Both endpoints now validate, and `complete` also
+  checks the file belongs to the chat in the URL.
+- **Push unsubscribe (IDOR).** `POST /push/unsubscribe` deleted by endpoint
+  with no owner check, so any account could unsubscribe another account's
+  device. Now scoped to the caller.
+- **Push endpoint SSRF.** A subscription endpoint is a client-supplied URL the
+  server then sends requests to. Restricted to the real push services
+  (`PUSH_ENDPOINT_HOSTS` to extend, `PUSH_ALLOW_ANY_ENDPOINT=1` to disable),
+  and capped at 10 devices per account.
+
+**Fixed — auth**
+
+- **Admin claim fails closed.** With `ADMIN_USERS` set but no usable
+  `ADMIN_SETUP_CODE` (unset, under 8 characters, or a placeholder like
+  `change-me`), the api now refuses to hand out the admin account instead of
+  granting it to whoever registers first. Warns loudly at startup. The code is
+  compared in constant time.
+- **Username enumeration via timing.** A login for an unknown username returned
+  without doing the scrypt work, so response time revealed which accounts
+  exist. Unknown users now pay the same cost.
+- **Rate limiting.** Per-ip limits on signup (5/hour) and login (60/hour), plus
+  a ceiling on accounts waiting for approval (50) so a flood can't bury the
+  approval panel. All tunable; a family instance will never reach them.
+- **Sessions on WebSockets.** A socket authenticated once at connect and was
+  never re-checked, so a logged-out tab kept receiving live events. The
+  30-second heartbeat now re-validates and closes revoked sockets.
+- Upload completeness is tracked per chunk index, so re-uploading one chunk
+  can no longer satisfy the size check while leaving holes in the file.
+
+**Added — hardening**
+
+- **Content-Security-Policy** and the usual headers (frame-ancestors, nosniff,
+  Referrer-Policy, Permissions-Policy, HSTS, COOP/CORP) on the web image.
+- **Redis now requires a password**, generated at install by the chart and kept
+  across upgrades (`redis.auth.existingSecret` for GitOps, where a
+  `helm template` render can't preserve a generated one), and is restricted to
+  the api pods by a **NetworkPolicy**.
+- **Containers run hardened**: non-root, read-only root filesystem, all
+  capabilities dropped, `seccompProfile: RuntimeDefault`. The web pod keeps a
+  lighter set because stock nginx needs root to start.
+- The api resolves the real client ip through `TRUST_PROXY_HOPS` (nginx now
+  forwards `X-Forwarded-For`), which is what the per-ip limits key on.
+- Base images bumped and `apk upgrade` added, clearing the OpenSSL/expat/
+  libxml2/libpng/musl/zlib CVEs the Artifact Hub scan flagged.
+
+**Documented**
+
+- `SECURITY.md` now spells out concretely what a malicious operator can do —
+  including that a 6-digit PIN is brute-forceable offline in hours and that
+  public-key substitution would go undetected. Both are real limits with fixes
+  on the roadmap, not things this release closes.
+
 ## 0.3.0-beta — 2026-07-19
 
 Optional read receipts.

@@ -12,19 +12,37 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "description": "Defaults to the chart appVersion when empty." }
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string",
+              "description": "Defaults to the chart appVersion when empty."
+            }
           }
         },
         "web": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string" }
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string"
+            }
           }
         },
-        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
       }
     },
     "adminUsers": {
@@ -33,19 +51,23 @@
     },
     "adminSetupCode": {
       "type": "string",
-      "description": "Code required to claim an admin username at signup. Empty = no code required (unsafe on public deployments)."
+      "description": "Code required to claim an admin username at signup. Must be at least 8 characters and not a placeholder like \"change-me\" \u2014 the api refuses to hand out an admin account otherwise."
     },
     "push": {
       "type": "object",
       "additionalProperties": false,
       "description": "Web Push (VAPID). Leave keys empty to disable background notifications.",
       "properties": {
-        "vapidPublicKey": { "type": "string" },
-        "vapidPrivateKey": { "type": "string" },
+        "vapidPublicKey": {
+          "type": "string"
+        },
+        "vapidPrivateKey": {
+          "type": "string"
+        },
         "vapidSubject": {
           "type": "string",
           "pattern": "^(mailto:|https://)",
-          "description": "Contact URI required by the VAPID spec: mailto:… or https://…"
+          "description": "Contact URI required by the VAPID spec: mailto:\u2026 or https://\u2026"
         },
         "existingSecret": {
           "type": "string",
@@ -57,20 +79,42 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean" },
-        "className": { "type": "string" },
-        "host": { "type": "string", "minLength": 1 },
-        "tlsSecretName": { "type": "string" },
-        "certManagerClusterIssuer": { "type": "string" },
-        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
+        "enabled": {
+          "type": "boolean"
+        },
+        "className": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tlsSecretName": {
+          "type": "string"
+        },
+        "certManagerClusterIssuer": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
       }
     },
     "storage": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "size": { "type": "string", "minLength": 1 },
-        "className": { "type": "string", "description": "An RWX-capable StorageClass (NFS, CephFS, Longhorn-RWX, ...)." }
+        "size": {
+          "type": "string",
+          "minLength": 1
+        },
+        "className": {
+          "type": "string",
+          "description": "An RWX-capable StorageClass (NFS, CephFS, Longhorn-RWX, ...)."
+        }
       }
     },
     "postgres": {
@@ -81,48 +125,127 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "instances": { "type": "integer", "minimum": 1 },
-            "size": { "type": "string", "minLength": 1 },
-            "storageClass": { "type": "string" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "instances": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "size": {
+              "type": "string",
+              "minLength": 1
+            },
+            "storageClass": {
+              "type": "string"
+            }
           }
         },
-        "existingUriSecret": { "type": "string", "description": "Required when cnpg.enabled is false." },
-        "uriSecretKey": { "type": "string", "minLength": 1 }
+        "existingUriSecret": {
+          "type": "string",
+          "description": "Required when cnpg.enabled is false."
+        },
+        "uriSecretKey": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "redis": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "maxmemory": { "type": "string", "minLength": 1 },
-        "memoryLimit": { "type": "string", "minLength": 1 },
-        "resources": { "$ref": "#/$defs/resources" }
+        "maxmemory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "memoryLimit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Redis password. Generated at install and preserved across upgrades.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "password": {
+              "type": "string",
+              "description": "Pin a specific password instead of generating one."
+            },
+            "existingSecret": {
+              "type": "string",
+              "description": "Pre-created Secret holding the Redis password. Required for GitOps renderers (Argo CD/Flux), which cannot preserve a generated one."
+            },
+            "existingSecretKey": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
       }
     },
     "api": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "replicas": { "type": "integer", "minimum": 1 },
-        "resources": { "$ref": "#/$defs/resources" },
-        "hpa": { "$ref": "#/$defs/hpa" }
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "hpa": {
+          "$ref": "#/$defs/hpa"
+        },
+        "trustProxyHops": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Reverse-proxy hops in front of the api, used to resolve the real client ip for per-ip rate limits."
+        }
       }
     },
     "web": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "replicas": { "type": "integer", "minimum": 1 },
-        "resources": { "$ref": "#/$defs/resources" },
-        "hpa": { "$ref": "#/$defs/hpa" },
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "hpa": {
+          "$ref": "#/$defs/hpa"
+        },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
-            "loadBalancerClass": { "type": "string" },
-            "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
+            "type": {
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ]
+            },
+            "loadBalancerClass": {
+              "type": "string"
+            },
+            "annotations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -131,16 +254,42 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "contentDays": { "type": "integer", "minimum": 1, "description": "Chat content lifetime, both storage modes." },
-        "bigFileDays": { "type": "integer", "minimum": 1, "description": "Lifetime for files over the big-file threshold." },
-        "accountDays": { "type": "integer", "minimum": 1, "description": "Unused accounts are deleted after this many days." }
+        "contentDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Chat content lifetime, both storage modes."
+        },
+        "bigFileDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Lifetime for files over the big-file threshold."
+        },
+        "accountDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Unused accounts are deleted after this many days."
+        }
       }
     },
     "retentionCronJob": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "schedule": { "type": "string", "minLength": 1, "description": "Cron expression for the daily PVC sweep." }
+        "schedule": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Cron expression for the daily PVC sweep."
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Restrict Redis to the api pods (requires a NetworkPolicy-enforcing CNI).",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
       }
     }
   },
@@ -148,18 +297,34 @@
     "resources": {
       "type": "object",
       "properties": {
-        "requests": { "type": "object" },
-        "limits": { "type": "object" }
+        "requests": {
+          "type": "object"
+        },
+        "limits": {
+          "type": "object"
+        }
       }
     },
     "hpa": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean" },
-        "minReplicas": { "type": "integer", "minimum": 1 },
-        "maxReplicas": { "type": "integer", "minimum": 1 },
-        "targetCPU": { "type": "integer", "minimum": 1, "maximum": 100 }
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "targetCPU": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
       }
     }
   }

@@ -16,6 +16,14 @@ export const config = {
   dataDir: process.env.DATA_DIR || '/data',
   databaseUrl: process.env.DATABASE_URL || '',
   redisUrl: process.env.REDIS_URL || '',
+  // Passed separately rather than embedded in REDIS_URL so a generated password
+  // never has to survive URL-encoding.
+  redisPassword: process.env.REDIS_PASSWORD || '',
+  // Number of reverse proxies in front of the api (web nginx, ingress, tunnel).
+  // Express counts back this many hops in X-Forwarded-For to find the real
+  // client ip, which is what the per-ip limits below are keyed on. Too high and
+  // a client could spoof its own ip; 0 disables proxy trust entirely.
+  trustProxyHops: Number(process.env.TRUST_PROXY_HOPS ?? 1),
 
   // Web Push (VAPID). Generate a pair with `npm run vapid` and set BOTH on every
   // api pod (same values — a per-pod keypair would invalidate subscriptions).
@@ -38,4 +46,29 @@ export const config = {
   sessionTtlMs: 30 * DAY,
   maxLoginFails: 5,
   lockoutMs: 15 * 60 * 1000,
+
+  // Abuse limits. Deliberately generous: a family instance must never hit
+  // these, while a script hammering signup does. All are per client ip.
+  signupsPerIpPerHour: Number(process.env.SIGNUPS_PER_IP_PER_HOUR || 5),
+  loginsPerIpPerHour: Number(process.env.LOGINS_PER_IP_PER_HOUR || 60),
+  // Ceiling on accounts sitting in 'pending'. Stops an unauthenticated flood
+  // from burying the admin's approval panel. Approve or reject to make room.
+  maxPendingAccounts: Number(process.env.MAX_PENDING_ACCOUNTS || 50),
+  maxPushSubsPerUser: Number(process.env.MAX_PUSH_SUBS_PER_USER || 10),
+
+  // Web push endpoints are attacker-supplied URLs that the server then makes
+  // requests to, so they are restricted to the real push services. Set
+  // PUSH_ENDPOINT_HOSTS to a comma-separated suffix list to extend it, or
+  // PUSH_ALLOW_ANY_ENDPOINT=1 to turn the check off.
+  pushAllowAnyEndpoint: process.env.PUSH_ALLOW_ANY_ENDPOINT === '1',
+  pushEndpointHosts: (process.env.PUSH_ENDPOINT_HOSTS
+    || 'fcm.googleapis.com,updates.push.services.mozilla.com,push.services.mozilla.com,notify.windows.com,push.apple.com,web.push.apple.com'
+  ).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
 };
+
+// An admin username is only handed out at signup when a real setup code is
+// configured. Left unset (or left at a shipped placeholder) the first person to
+// register the name would become admin, so treat those as "no code".
+const PLACEHOLDER_CODES = new Set(['change-me', 'changeme', 'change_me', 'placeholder', 'secret', 'password']);
+config.adminSetupCodeUsable = config.adminSetupCode.length >= 8
+  && !PLACEHOLDER_CODES.has(config.adminSetupCode.toLowerCase());

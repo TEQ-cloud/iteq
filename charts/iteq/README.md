@@ -118,6 +118,10 @@ proxies `/api` + `/ws` to the api service. So every exposure style works:
 | `postgres.cnpg.enabled` | `true` | Provision a CNPG cluster; disable to bring your own DB |
 | `postgres.existingUriSecret` | `""` | Secret with a `uri` key when bringing your own Postgres |
 | `redis.maxmemory` | `8gb` | RAM budget for non-persistent chats (persistence is off on purpose) |
+| `redis.auth.enabled` | `true` | Password-protect Redis (it holds sessions + RAM-chat ciphertext) |
+| `redis.auth.existingSecret` | `""` | Pre-created Secret with the password — **required for Argo CD / Flux**, see below |
+| `networkPolicy.enabled` | `true` | Restrict Redis to the api pods (needs a NetworkPolicy-enforcing CNI) |
+| `api.trustProxyHops` | `1` | Reverse-proxy hops in front of the api, used to resolve the client ip for rate limits |
 | `retention.contentDays` | `7` | Chat content lifetime (both storage modes) |
 | `retention.bigFileDays` | `3` | Lifetime for files over 5 GB |
 | `retention.accountDays` | `180` | Unused accounts are deleted after this |
@@ -125,6 +129,23 @@ proxies `/api` + `/ws` to the api service. So every exposure style works:
 | `push.vapidSubject` | `mailto:admin@example.com` | Contact URI required by the VAPID spec |
 | `push.existingSecret` | `""` | Secret with `vapidPublicKey`/`vapidPrivateKey` instead of inline values |
 | `api.hpa.*` / `web.hpa.*` | on | Autoscaling ranges |
+
+### Redis password and GitOps
+
+The chart generates the Redis password at install and reuses it on upgrade by
+looking the Secret back up in the cluster. That lookup only works against a
+live cluster, so renderers that run plain `helm template` — Argo CD, Flux's
+default — would generate a **new password on every sync**. Deploying that way,
+create the Secret once and point the chart at it:
+
+```bash
+kubectl -n iteq create secret generic iteq-redis-auth \
+  --from-literal=redis-password="$(openssl rand -hex 32)"
+helm upgrade ... --set redis.auth.existingSecret=iteq-redis-auth
+```
+
+To rotate a generated password: delete `<release>-redis-auth`, then upgrade.
+(Everyone gets logged out, since sessions live in Redis.)
 
 All values: [values.yaml](values.yaml). Storage semantics, crypto details and
 the full story: [main README](https://github.com/TEQ-cloud/iteq#readme).

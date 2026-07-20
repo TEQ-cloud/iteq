@@ -12,10 +12,20 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: prune
               image: {{ include "iteq.apiImage" . }}
               command: ["node", "src/prune.js"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
               env:
                 - name: DATA_DIR
                   value: /data

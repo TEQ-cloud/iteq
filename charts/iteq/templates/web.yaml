@@ -18,10 +18,20 @@ spec:
       labels:
         app: {{ include "iteq.fullname" . }}-web
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           image: {{ include "iteq.webImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Deliberately lighter than the api: the stock nginx image starts as
+          # root to write its pid/cache and drops its workers to the nginx user,
+          # so runAsNonRoot / readOnlyRootFilesystem / dropping ALL caps would
+          # stop it booting. Switch to nginxinc/nginx-unprivileged if you want
+          # the full set here.
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: API_UPSTREAM # web nginx proxies /api and /ws here
               value: {{ include "iteq.fullname" . }}-api:8080

@@ -21,6 +21,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{ .Values.image.web.repository }}:{{ .Values.image.web.tag | default .Chart.AppVersion }}
 {{- end -}}
 
+{{- define "iteq.redisSecretName" -}}
+{{- if .Values.redis.auth.existingSecret -}}
+{{ .Values.redis.auth.existingSecret }}
+{{- else -}}
+{{ include "iteq.fullname" . }}-redis-auth
+{{- end -}}
+{{- end -}}
+
 {{- define "iteq.dbSecretName" -}}
 {{- if .Values.postgres.cnpg.enabled -}}
 {{ include "iteq.fullname" . }}-db-app
