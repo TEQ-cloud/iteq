@@ -58,7 +58,7 @@ the in-app 👥 panel.
 Generate a VAPID keypair once and pass it to the chart:
 
 ```bash
-docker run --rm ghcr.io/teq-cloud/iteq-api:0.2.0-beta npm run vapid
+docker run --rm ghcr.io/teq-cloud/iteq-api:0.3.2-beta node src/vapid.js
 ```
 
 ```yaml

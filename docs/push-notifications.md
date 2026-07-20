@@ -45,7 +45,7 @@ Nothing is sent to it in normal operation and users never see it.
 Run it once, from the api image (no install needed):
 
 ```bash
-docker run --rm ghcr.io/teq-cloud/iteq-api:latest npm run vapid
+docker run --rm ghcr.io/teq-cloud/iteq-api:latest node src/vapid.js
 ```
 
 Output:

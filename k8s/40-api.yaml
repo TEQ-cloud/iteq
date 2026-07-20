@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: ghcr.io/teq-cloud/iteq-api:0.3.1-beta # or your own registry
+          image: ghcr.io/teq-cloud/iteq-api:0.3.2-beta # or your own registry
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true # only /data (PVC) and /tmp are written
@@ -35,7 +35,7 @@ spec:
             - name: MODE
               value: prod
             - name: APP_VERSION
-              value: 0.3.1-beta # shows up in /healthz — keep in step with the image tag
+              value: 0.3.2-beta # shows up in /healthz — keep in step with the image tag
             - name: ADMIN_USERS
               value: quinten # comma-separated usernames: auto-approved + may approve others
             # Required to CLAIM an admin username at signup. Must be >=8 chars
@@ -45,7 +45,7 @@ spec:
               value: "" # CHANGE ME: openssl rand -hex 16
             - name: ACCOUNT_RETENTION_DAYS
               value: "180" # accounts unused this long are deleted, chats included
-            # Web Push. Generate a pair with `npm run vapid` in the api image and
+            # Web Push. Generate a pair with `node src/vapid.js` in the api image and
             # put it in a Secret (kubectl create secret generic iteq-push \
             #   --from-literal=vapidPublicKey=... --from-literal=vapidPrivateKey=...).
             # Omit all three to disable push; in-app notifications still work.

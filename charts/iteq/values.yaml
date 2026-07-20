@@ -20,7 +20,7 @@ adminSetupCode: ""
 
 # Web Push: notifications while the app is closed (iOS 16.4+ requires the app
 # to be installed to the Home Screen). Generate a keypair once with:
-#   docker run --rm ghcr.io/teq-cloud/iteq-api:<tag> npm run vapid
+#   docker run --rm ghcr.io/teq-cloud/iteq-api:<tag> node src/vapid.js
 # Leave empty to disable push entirely — in-app notifications keep working.
 # The private key is rendered into a Secret; or point at your own with
 # existingSecret (keys: vapidPublicKey, vapidPrivateKey).

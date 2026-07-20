@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.2-beta — 2026-07-20
+
+Clears the last container CVEs. No code changes, no behaviour changes.
+
+- **The api image no longer ships npm.** Every vulnerability the scanners
+  flagged against it (`undici` ×4, `tar` ×1 — one HIGH, two MEDIUM, two LOW)
+  came from npm's *own* bundled dependencies in the `node` base image, not from
+  iTEQ's, which are express/pg/redis/web-push/ws and nothing else. The api runs
+  `node src/index.js` and the retention job runs `node src/prune.js`, so npm
+  and corepack were only ever build-time tooling. The image is now a two-stage
+  build that installs dependencies in a builder and drops npm, corepack and
+  yarn from the runtime layer. Verified with Trivy: **5 findings → 0**, with
+  the web image also at 0.
+- **VAPID keys are generated with `node src/vapid.js`** instead of
+  `npm run vapid` (npm is gone). Docs, compose, chart and manifests updated.
+
 ## 0.3.1-beta — 2026-07-20
 
 Security hardening release, from a full audit of the codebase plus the
