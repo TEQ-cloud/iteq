@@ -58,7 +58,7 @@ the in-app 👥 panel.
 Generate a VAPID keypair once and pass it to the chart:
 
 ```bash
-docker run --rm ghcr.io/teq-cloud/iteq-api:0.3.2-beta node src/vapid.js
+docker run --rm ghcr.io/teq-cloud/iteq-api:0.3.3-beta node src/vapid.js
 ```
 
 ```yaml
@@ -135,17 +135,42 @@ proxies `/api` + `/ws` to the api service. So every exposure style works:
 The chart generates the Redis password at install and reuses it on upgrade by
 looking the Secret back up in the cluster. That lookup only works against a
 live cluster, so renderers that run plain `helm template` — Argo CD, Flux's
-default — would generate a **new password on every sync**. Deploying that way,
-create the Secret once and point the chart at it:
+default — get nothing back and would generate a **new password on every sync**.
+
+**On GitOps this is not optional:** create the Secret once and point the chart
+at it, or the api will eventually fail to authenticate against a Redis that is
+still running with an older password.
 
 ```bash
 kubectl -n iteq create secret generic iteq-redis-auth \
   --from-literal=redis-password="$(openssl rand -hex 32)"
-helm upgrade ... --set redis.auth.existingSecret=iteq-redis-auth
+# then in your values file:
+#   redis:
+#     auth:
+#       existingSecret: iteq-redis-auth
 ```
+
+Both Deployments carry a checksum of the password, so a deliberate change rolls
+Redis and the api together instead of leaving them on different passwords.
 
 To rotate a generated password: delete `<release>-redis-auth`, then upgrade.
 (Everyone gets logged out, since sessions live in Redis.)
+
+#### Recovering from `WRONGPASS`
+
+If the api crashes with `WRONGPASS invalid username-password pair`, the api and
+Redis are on different passwords. Pin one and restart both:
+
+```bash
+kubectl -n iteq create secret generic iteq-redis-auth \
+  --from-literal=redis-password="$(openssl rand -hex 32)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n iteq rollout restart deploy/iteq-redis deploy/iteq-api
+```
+
+Then set `redis.auth.existingSecret: iteq-redis-auth` in your values so it
+stops drifting. Sessions and non-persistent chats are cleared — that is
+inherent to restarting Redis, which never persists them by design.
 
 All values: [values.yaml](values.yaml). Storage semantics, crypto details and
 the full story: [main README](https://github.com/TEQ-cloud/iteq#readme).

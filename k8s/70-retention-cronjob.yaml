@@ -22,7 +22,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: prune
-              image: ghcr.io/teq-cloud/iteq-api:0.3.2-beta # same image as the api
+              image: ghcr.io/teq-cloud/iteq-api:0.3.3-beta # same image as the api
               command: ["node", "src/prune.js"]
               securityContext:
                 allowPrivilegeEscalation: false

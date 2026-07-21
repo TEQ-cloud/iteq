@@ -25,7 +25,7 @@ services:
     command: redis-server --save '' --appendonly no --maxmemory ${REDIS_MAXMEMORY:-2gb} --maxmemory-policy noeviction --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
 
   api:
-    image: ${IMAGE_API:-ghcr.io/teq-cloud/iteq-api:0.3.2-beta}
+    image: ${IMAGE_API:-ghcr.io/teq-cloud/iteq-api:0.3.3-beta}
     restart: unless-stopped
     depends_on: [db, redis]
     environment:
@@ -40,7 +40,7 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
-      APP_VERSION: ${IMAGE_TAG:-0.3.2-beta}
+      APP_VERSION: ${IMAGE_TAG:-0.3.3-beta}
       RETENTION_DAYS: ${RETENTION_DAYS:-7}
       BIG_RETENTION_DAYS: ${BIG_RETENTION_DAYS:-3}
       ACCOUNT_RETENTION_DAYS: ${ACCOUNT_RETENTION_DAYS:-180}
@@ -51,7 +51,7 @@ services:
       - iteq-data:/data
 
   web:
-    image: ${IMAGE_WEB:-ghcr.io/teq-cloud/iteq-web:0.3.2-beta}
+    image: ${IMAGE_WEB:-ghcr.io/teq-cloud/iteq-web:0.3.3-beta}
     restart: unless-stopped
     depends_on: [api]
     environment:

@@ -10,3 +10,20 @@ Next steps:
 
 Watch the rollout:   kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "iteq.fullname" . }}-api
 Check live version:  curl https://{{ .Values.ingress.host }}/api/healthz
+{{ if and .Values.redis.auth.enabled (not .Values.redis.auth.existingSecret) (not .Values.redis.auth.password) }}
+NOTE — Redis password (read this if you deploy with Argo CD or Flux):
+
+  The Redis password was generated for you and is preserved across `helm
+  upgrade` by reading the existing Secret back out of the cluster. That
+  read is not possible when the chart is rendered with `helm template`,
+  which is what Argo CD and Flux do — they would mint a NEW password on
+  every sync, restarting Redis each time (logging everyone out and
+  clearing non-persistent chats).
+
+  On GitOps, pin the password instead:
+
+    kubectl -n {{ .Release.Namespace }} create secret generic {{ include "iteq.fullname" . }}-redis-auth \
+      --from-literal=redis-password="$(openssl rand -hex 32)"
+
+  then set:  redis.auth.existingSecret={{ include "iteq.fullname" . }}-redis-auth
+{{- end }}

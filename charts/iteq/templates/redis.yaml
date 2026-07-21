@@ -15,6 +15,12 @@ spec:
     metadata:
       labels:
         app: {{ include "iteq.fullname" . }}-redis
+      annotations:
+        # Redis only reads the password at process start. Without this, a
+        # changed Secret would leave Redis running on the OLD password while
+        # restarted api pods picked up the new one — which fails as
+        # "WRONGPASS". Rolling both on the same checksum keeps them in step.
+        checksum/redis-auth: {{ include (print $.Template.BasePath "/redis-secret.yaml") . | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

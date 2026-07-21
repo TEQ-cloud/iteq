@@ -23,3 +23,21 @@
 #
 # redis:
 #   maxmemory: 4gb
+
+# REQUIRED IF YOU DEPLOY WITH ARGO CD OR FLUX.
+#
+# The chart otherwise generates the Redis password itself and preserves it by
+# reading the existing Secret back out of the cluster. GitOps tools render with
+# `helm template`, where that read is impossible — so a new password would be
+# minted on every sync, restarting Redis each time (everyone logged out,
+# non-persistent chats cleared) or leaving the api unable to authenticate at
+# all ("WRONGPASS").
+#
+# Create the Secret once, out of band, then point the chart at it:
+#
+#   kubectl -n iteq create secret generic iteq-redis-auth \
+#     --from-literal=redis-password="$(openssl rand -hex 32)"
+#
+# redis:
+#   auth:
+#     existingSecret: iteq-redis-auth

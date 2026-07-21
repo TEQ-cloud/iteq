@@ -137,7 +137,7 @@ function Landing({ onLogin, onCreate }) {
           <div className="rd">Group chats.</div>
         </div>
         <div className="roadmap-item current">
-          <div className="rv">v0.3.2 <span style={{ fontSize: 11 }}>BETA</span></div>
+          <div className="rv">v0.3.3 <span style={{ fontSize: 11 }}>BETA</span></div>
           <div className="rd">
             <b>Now live.</b> Security hardening across the board, from a full audit — stricter
             access checks, rate limiting, a locked-down Redis, a strict content policy and

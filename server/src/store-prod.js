@@ -50,8 +50,37 @@ export function createProdStore() {
   return {
     async init() {
       await db.query(SCHEMA);
-      await redis.connect();
-      await sub.connect();
+      try {
+        await redis.connect();
+        // connect() alone does not prove the credentials are good: with no
+        // password configured the client sends no AUTH and only fails on the
+        // first real command, surfacing as an unhandled rejection later. Ping
+        // so a credentials problem always lands in the catch below, at startup.
+        await redis.ping();
+        await sub.connect();
+      } catch (e) {
+        // A credentials mismatch here is a deployment problem, not a code one,
+        // and the raw driver error ("WRONGPASS ...") says nothing about how to
+        // fix it. Crashing is still correct — the api cannot work without
+        // Redis — but say why first.
+        if (/WRONGPASS|NOAUTH|invalid username-password|Client sent AUTH/i.test(String(e?.message))) {
+          console.error(
+            `\nRedis rejected the api's credentials: ${e.message}\n\n` +
+            'The api and Redis are using different passwords. Redis reads its password\n' +
+            'once at startup, so this happens when the password Secret changes while the\n' +
+            'Redis pod keeps running — most often under GitOps: Argo CD and Flux render\n' +
+            'the chart with `helm template`, which cannot preserve a generated password\n' +
+            'and mints a new one on every sync.\n\n' +
+            'Fix it by pinning the password and restarting both workloads:\n\n' +
+            '  kubectl -n <namespace> create secret generic <release>-redis-auth \\\n' +
+            '    --from-literal=redis-password="$(openssl rand -hex 32)"\n\n' +
+            '  # then set redis.auth.existingSecret=<release>-redis-auth in your values\n' +
+            '  kubectl -n <namespace> rollout restart deploy/<release>-redis deploy/<release>-api\n\n' +
+            'Non-persistent (RAM) chats and all sessions are cleared when Redis restarts.\n'
+          );
+        }
+        throw e;
+      }
     },
 
     // --- accounts ---

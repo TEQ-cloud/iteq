@@ -17,6 +17,9 @@ spec:
     metadata:
       labels:
         app: {{ include "iteq.fullname" . }}-api
+      annotations:
+        # Roll with Redis whenever the password changes (see redis.yaml).
+        checksum/redis-auth: {{ include (print $.Template.BasePath "/redis-secret.yaml") . | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

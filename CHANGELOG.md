@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.3.3-beta — 2026-07-21
+
+Fixes an api crash loop (`WRONGPASS`) introduced by the Redis password added in
+0.3.1-beta. GitOps deployments are affected; plain `helm install`/`upgrade` is
+not.
+
+**What went wrong.** The chart generates the Redis password and preserves it
+across upgrades by reading the existing Secret back out of the cluster. Argo CD
+and Flux render with `helm template`, where that read returns nothing — so every
+sync minted a *new* password. The Redis pod's spec never changed, so it kept
+running with the original password, while the api pods (restarted by the
+0.3.2-beta image bump) picked up the new one. Different passwords on the two
+sides is exactly what `WRONGPASS` reports.
+
+- **Both Deployments now carry a checksum of the password Secret**, so a
+  password change rolls Redis and the api together instead of stranding them on
+  different values. This is the actual defect: nothing made Redis re-read a
+  changed password.
+- **The api explains this failure instead of dumping a stack trace.** A
+  credentials mismatch now prints what happened and the exact commands to fix
+  it, then still exits (it genuinely cannot run without Redis). Credentials are
+  verified at startup with a ping, so the "api has no password at all" variant
+  (`NOAUTH`) is caught in the same place rather than surfacing later as an
+  unhandled rejection.
+- **`redis.auth.existingSecret` is now documented as required for GitOps**, in
+  the chart NOTES, both READMEs and `env/prod-values.yaml` — pinning the Secret
+  is what stops the password rotating on every sync.
+
+**If you are hitting this now:**
+
+```bash
+kubectl -n iteq create secret generic iteq-redis-auth \
+  --from-literal=redis-password="$(openssl rand -hex 32)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n iteq rollout restart deploy/iteq-redis deploy/iteq-api
+```
+
+Then set `redis.auth.existingSecret: iteq-redis-auth` in your values so it stops
+drifting. Sessions and non-persistent chats are cleared, which is inherent to
+restarting Redis — it never persists them by design.
+
 ## 0.3.2-beta — 2026-07-20
 
 Clears the last container CVEs. No code changes, no behaviour changes.

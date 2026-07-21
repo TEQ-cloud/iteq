@@ -106,15 +106,23 @@ with `openssl rand -hex 16`. Regular signups are unaffected.
 Other secrets provision themselves: CNPG generates the database credentials
 (`<cluster>-app` secret) unless you bring your own — see
 [examples/cnpg.yaml](examples/cnpg.yaml) — and the Helm chart generates the
-Redis password at install and keeps it across upgrades. If you deploy with
-Argo CD or Flux, pre-create that Secret and set `redis.auth.existingSecret`:
-a `helm template` render cannot preserve a generated password and would mint a
-new one on every sync. With the raw manifests, create it once:
+Redis password at install and keeps it across upgrades.
+
+**If you deploy with Argo CD or Flux, you must pre-create that Secret** and set
+`redis.auth.existingSecret`. Those tools render with `helm template`, which
+cannot read the existing Secret back and therefore mints a new password on
+every sync — leaving the api authenticating against a Redis that is still
+running with the old one (`WRONGPASS`). The same one-off Secret is what the raw
+manifests expect:
 
 ```bash
 kubectl -n iteq create secret generic iteq-redis-auth \
   --from-literal=redis-password="$(openssl rand -hex 32)"
 ```
+
+Both Deployments carry a checksum of that Secret, so changing the password
+rolls Redis and the api together rather than stranding them on different ones.
+Restarting Redis always clears sessions and non-persistent chats, by design.
 
 ## Architecture
 
